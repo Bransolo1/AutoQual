@@ -27,6 +27,7 @@ If `JWT_ISSUER` and `JWT_AUDIENCE` are set, the API will validate incoming JWT c
 
 ### Audit export & retention
 - `GET /audit/export.csv` exports audit logs.
+- `POST /audit/export` uploads audit logs to object storage and returns a signed URL.
 - `POST /audit/retention-run` deletes old audit events when `AUDIT_RETENTION_ALLOW=true`.
 
 ### SSO/OIDC placeholder

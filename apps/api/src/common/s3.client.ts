@@ -34,6 +34,17 @@ export async function getSignedUploadUrl(storageKey: string, contentType?: strin
   return sign(s3, command, { expiresIn: 900 });
 }
 
+export async function putObject(storageKey: string, body: string | Buffer, contentType?: string) {
+  const bucket = process.env.S3_BUCKET || "sensehub";
+  const command = new PutObjectCommand({
+    Bucket: bucket,
+    Key: storageKey,
+    Body: body,
+    ContentType: contentType,
+  });
+  return s3.send(command);
+}
+
 export async function createMultipartUpload(storageKey: string, contentType?: string) {
   const bucket = process.env.S3_BUCKET || "sensehub";
   const command = new CreateMultipartUploadCommand({

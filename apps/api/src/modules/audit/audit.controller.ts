@@ -43,6 +43,24 @@ export class AuditController {
     res.send(csv);
   }
 
+  @Post("export")
+  @Roles("admin")
+  exportToStorage(
+    @Query("workspaceId") workspaceId: string,
+    @Query("actorUserId") actorUserId: string,
+    @Query("entityType") entityType?: string,
+    @Query("entityId") entityId?: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.auditService.exportToStorage({
+      workspaceId,
+      actorUserId,
+      entityType,
+      entityId,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
   @Post("retention-run")
   @Roles("admin")
   applyRetention(

@@ -118,6 +118,7 @@
 - `PATCH /notifications/:id/read`
 - `GET /audit` (query: workspaceId, entityType?, entityId?, limit?)
 - `GET /audit/export.csv` (query: workspaceId, entityType?, entityId?, limit?)
+- `POST /audit/export` (query: workspaceId, actorUserId, entityType?, entityId?, limit?)
 - `POST /audit/retention-run` (query: workspaceId, retentionDays?)
 - `GET /auth/sso/config`
 - `POST /auth/sso/callback` (query: code)

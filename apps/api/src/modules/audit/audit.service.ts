@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
+import { getSignedMediaUrl, putObject } from "../../common/s3.client";
 
 @Injectable()
 export class AuditService {
@@ -53,6 +54,37 @@ export class AuditService {
       ]),
     ];
     return rows.map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\n");
+  }
+
+  async exportToStorage({
+    workspaceId,
+    entityType,
+    entityId,
+    limit,
+    actorUserId,
+  }: {
+    workspaceId: string;
+    entityType?: string;
+    entityId?: string;
+    limit?: number;
+    actorUserId: string;
+  }) {
+    const csv = await this.exportCsv({ workspaceId, entityType, entityId, limit });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const storageKey = `audit/exports/${workspaceId}/audit-${timestamp}.csv`;
+    await putObject(storageKey, csv, "text/csv");
+    const url = await getSignedMediaUrl(storageKey);
+    await this.prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        actorUserId,
+        action: "audit.exported",
+        entityType: "audit",
+        entityId: storageKey,
+        metadata: { storageKey, entityType, entityId, limit },
+      },
+    });
+    return { storageKey, url };
   }
 
   async applyRetention(workspaceId: string, retentionDays?: number) {
