@@ -33,6 +33,10 @@ If `JWT_ISSUER` and `JWT_AUDIENCE` are set, the API will validate incoming JWT c
 SSO configuration is exposed at `GET /auth/sso/config`. The callback endpoint is stubbed at
 `POST /auth/sso/callback` for integration with your IdP.
 
+### Secrets management placeholder
+Set `SECRETS_PROVIDER=env` (default) or `vault` to use external secrets in production.
+Health check: `GET /secrets/health`.
+
 ### Tests
 - `npm run test` or run `.\install-deps.ps1 -RunTests` to install and test in one go.
 - `npm run test:e2e` (requires API + Web running; set `API_BASE_URL` and `WEB_BASE_URL` if not default).

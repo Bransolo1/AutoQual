@@ -26,6 +26,9 @@ export const envValidationSchema = Joi.object({
   SSO_ISSUER_URL: Joi.string().uri().optional(),
   SSO_CLIENT_ID: Joi.string().optional(),
   SSO_REDIRECT_URI: Joi.string().uri().optional(),
+  SECRETS_PROVIDER: Joi.string().valid("env", "vault").default("env"),
+  VAULT_ADDR: Joi.string().uri().optional(),
+  VAULT_ROLE: Joi.string().optional(),
   THROTTLE_TTL: Joi.number().default(60),
   THROTTLE_LIMIT: Joi.number().default(120),
 }).unknown(true);
