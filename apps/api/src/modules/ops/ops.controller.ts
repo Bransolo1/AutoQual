@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Query, Res } from "@nestjs/common";
+import { Roles } from "../../auth/roles.decorator";
 import { OpsService } from "./ops.service";
 import type { Response } from "express";
 
@@ -7,16 +8,19 @@ export class OpsController {
   constructor(private readonly opsService: OpsService) {}
 
   @Get("dashboard")
+  @Roles("admin")
   getDashboard(@Query("workspaceId") workspaceId: string) {
     return this.opsService.getDashboard(workspaceId);
   }
 
   @Post("overdue-reminders")
+  @Roles("admin")
   sendOverdueReminders(@Query("workspaceId") workspaceId: string) {
     return this.opsService.sendOverdueReminders(workspaceId);
   }
 
   @Get("overdue")
+  @Roles("admin")
   listOverdue(
     @Query("workspaceId") workspaceId: string,
     @Query("assigneeUserId") assigneeUserId?: string,
@@ -26,6 +30,7 @@ export class OpsController {
   }
 
   @Get("overdue.csv")
+  @Roles("admin")
   async exportOverdue(
     @Query("workspaceId") workspaceId: string,
     @Query("assigneeUserId") assigneeUserId: string | undefined,
@@ -50,6 +55,7 @@ export class OpsController {
   }
 
   @Get("blocked")
+  @Roles("admin")
   listBlocked(
     @Query("workspaceId") workspaceId: string,
     @Query("q") query?: string,
@@ -58,6 +64,7 @@ export class OpsController {
   }
 
   @Get("blocked.csv")
+  @Roles("admin")
   async exportBlocked(
     @Query("workspaceId") workspaceId: string,
     @Query("q") query: string | undefined,
@@ -83,11 +90,13 @@ export class OpsController {
   }
 
   @Post("retention-run")
+  @Roles("admin")
   runRetention(@Query("workspaceId") workspaceId: string) {
     return this.opsService.runRetention(workspaceId);
   }
 
   @Post("dashboard/refresh")
+  @Roles("admin")
   refreshDashboard(
     @Query("workspaceId") workspaceId: string,
     @Query("studyId") studyId?: string,

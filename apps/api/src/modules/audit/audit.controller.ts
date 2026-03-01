@@ -1,12 +1,14 @@
 import { Controller, Get, Post, Query, Res } from "@nestjs/common";
 import { Response } from "express";
 import { AuditService } from "./audit.service";
+import { Roles } from "../../auth/roles.decorator";
 
 @Controller("audit")
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 
   @Get()
+  @Roles("admin")
   list(
     @Query("workspaceId") workspaceId: string,
     @Query("entityType") entityType?: string,
@@ -22,6 +24,7 @@ export class AuditController {
   }
 
   @Get("export.csv")
+  @Roles("admin")
   async exportCsv(
     @Query("workspaceId") workspaceId: string,
     @Query("entityType") entityType: string | undefined,
@@ -41,6 +44,7 @@ export class AuditController {
   }
 
   @Post("retention-run")
+  @Roles("admin")
   applyRetention(
     @Query("workspaceId") workspaceId: string,
     @Query("retentionDays") retentionDays?: string,
