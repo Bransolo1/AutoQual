@@ -117,6 +117,8 @@
 - `GET /notifications` (query: userId, type?, unread?, limit?), `POST /notifications`
 - `PATCH /notifications/:id/read`
 - `GET /audit` (query: workspaceId, entityType?, entityId?, limit?)
+- `GET /audit/export.csv` (query: workspaceId, entityType?, entityId?, limit?)
+- `POST /audit/retention-run` (query: workspaceId, retentionDays?)
 - `GET /feedback` (query: projectId)
 - `POST /feedback` (body: workspaceId, projectId, studyId?, deliverableType, deliverableId?, stakeholderName, stakeholderRole?, rating?, sentiment?, notes?)
 - `GET /activation-metrics` (query: projectId)
