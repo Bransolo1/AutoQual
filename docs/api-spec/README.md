@@ -119,6 +119,8 @@
 - `GET /audit` (query: workspaceId, entityType?, entityId?, limit?)
 - `GET /audit/export.csv` (query: workspaceId, entityType?, entityId?, limit?)
 - `POST /audit/retention-run` (query: workspaceId, retentionDays?)
+- `GET /auth/sso/config`
+- `POST /auth/sso/callback` (query: code)
 - `GET /feedback` (query: projectId)
 - `POST /feedback` (body: workspaceId, projectId, studyId?, deliverableType, deliverableId?, stakeholderName, stakeholderRole?, rating?, sentiment?, notes?)
 - `GET /activation-metrics` (query: projectId)

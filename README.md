@@ -29,6 +29,10 @@ If `JWT_ISSUER` and `JWT_AUDIENCE` are set, the API will validate incoming JWT c
 - `GET /audit/export.csv` exports audit logs.
 - `POST /audit/retention-run` deletes old audit events when `AUDIT_RETENTION_ALLOW=true`.
 
+### SSO/OIDC placeholder
+SSO configuration is exposed at `GET /auth/sso/config`. The callback endpoint is stubbed at
+`POST /auth/sso/callback` for integration with your IdP.
+
 ### Tests
 - `npm run test` or run `.\install-deps.ps1 -RunTests` to install and test in one go.
 - `npm run test:e2e` (requires API + Web running; set `API_BASE_URL` and `WEB_BASE_URL` if not default).

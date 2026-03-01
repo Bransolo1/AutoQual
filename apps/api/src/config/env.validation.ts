@@ -22,6 +22,10 @@ export const envValidationSchema = Joi.object({
   JWT_AUDIENCE: Joi.string().optional(),
   AUDIT_RETENTION_ALLOW: Joi.boolean().default(false),
   AUDIT_RETENTION_DAYS: Joi.number().default(365),
+  SSO_ENABLED: Joi.boolean().default(false),
+  SSO_ISSUER_URL: Joi.string().uri().optional(),
+  SSO_CLIENT_ID: Joi.string().optional(),
+  SSO_REDIRECT_URI: Joi.string().uri().optional(),
   THROTTLE_TTL: Joi.number().default(60),
   THROTTLE_LIMIT: Joi.number().default(120),
 }).unknown(true);
