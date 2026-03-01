@@ -1,0 +1,23 @@
+import * as Joi from "joi";
+
+export const envValidationSchema = Joi.object({
+  NODE_ENV: Joi.string().valid("development", "test", "production").default("development"),
+  DATABASE_URL: Joi.string().uri().required(),
+  REDIS_HOST: Joi.string().default("localhost"),
+  REDIS_PORT: Joi.number().default(6379),
+  OPENSEARCH_URL: Joi.string().uri().required(),
+  S3_ENDPOINT: Joi.string().uri().required(),
+  S3_REGION: Joi.string().default("us-east-1"),
+  S3_ACCESS_KEY: Joi.string().required(),
+  S3_SECRET_KEY: Joi.string().required(),
+  S3_BUCKET: Joi.string().required(),
+  AI_PROVIDER: Joi.string().valid("mock", "openai", "anthropic").default("mock"),
+  EMBED_SECRET: Joi.string().min(16).required(),
+  EMBED_COMPLETION_WEBHOOK_URL: Joi.string().allow("").uri(),
+  OTEL_SERVICE_NAME: Joi.string().default("sensehub-api"),
+  OTEL_EXPORTER_OTLP_ENDPOINT: Joi.string().uri(),
+  WEB_BASE_URL: Joi.string().uri().required(),
+  CORS_ORIGIN: Joi.string().required(),
+  THROTTLE_TTL: Joi.number().default(60),
+  THROTTLE_LIMIT: Joi.number().default(120),
+}).unknown(true);

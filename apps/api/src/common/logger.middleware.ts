@@ -1,5 +1,6 @@
 import { Injectable, NestMiddleware } from "@nestjs/common";
 import { Request, Response, NextFunction } from "express";
+import { RequestContext } from "./request-context";
 
 @Injectable()
 export class LoggerMiddleware implements NestMiddleware {
@@ -7,6 +8,7 @@ export class LoggerMiddleware implements NestMiddleware {
     const start = Date.now();
     res.on("finish", () => {
       const duration = Date.now() - start;
+      const requestId = RequestContext.getRequestId();
       const log = {
         level: "info",
         msg: "request",
@@ -14,6 +16,7 @@ export class LoggerMiddleware implements NestMiddleware {
         url: req.url,
         statusCode: res.statusCode,
         durationMs: duration,
+        requestId,
         timestamp: new Date().toISOString(),
       };
       process.stdout.write(JSON.stringify(log) + "\n");

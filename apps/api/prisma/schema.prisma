@@ -432,5 +432,6 @@ model AuditEvent {
   entityType String
   entityId  String
   metadata  Json
+  requestId String?
   createdAt DateTime @default(now())
 }

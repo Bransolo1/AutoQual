@@ -1,4 +1,5 @@
 import { Module, NestModule, MiddlewareConsumer } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
 import { LoggerMiddleware } from "./common/logger.middleware";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { HealthModule } from "./modules/health/health.module";
@@ -36,9 +37,15 @@ import { APP_GUARD, Reflector } from "@nestjs/core";
 import { AuthGuard } from "./auth/auth.guard";
 import { WorkspaceGuard } from "./auth/workspace.guard";
 import { RolesGuard } from "./auth/roles.guard";
+import { envValidationSchema } from "./config/env.validation";
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validationSchema: envValidationSchema,
+      validationOptions: { abortEarly: false },
+    }),
     ThrottlerModule.forRoot({
       ttl: Number(process.env.THROTTLE_TTL ?? 60),
       limit: Number(process.env.THROTTLE_LIMIT ?? 120),

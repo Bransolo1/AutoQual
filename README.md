@@ -16,6 +16,9 @@ Enterprise-grade AI qualitative research platform with project delivery manageme
 4. Migrate + seed: `npm run prisma:migrate` then `npm run seed` (seed creates demo workspace `demo-workspace-id` with a project, study, and synthetic sessions).
 5. Start services (in separate terminals): Web `npm run dev:web`, API `npm run dev:api`, Worker `npm run dev:worker`.
 
+### Config validation
+The API validates required environment variables on boot. Missing or malformed values will stop startup.
+
 ### Tests
 - `npm run test` or run `.\install-deps.ps1 -RunTests` to install and test in one go.
 - `npm run test:e2e` (requires API + Web running; set `API_BASE_URL` and `WEB_BASE_URL` if not default).

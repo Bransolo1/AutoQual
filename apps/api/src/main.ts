@@ -5,6 +5,7 @@ import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import { AuthGuard } from "./auth/auth.guard";
 import { WorkspaceGuard } from "./auth/workspace.guard";
+import { RequestContext } from "./common/request-context";
 
 function bootstrap() {
   return NestFactory.create(AppModule, {
@@ -22,7 +23,7 @@ function bootstrap() {
     app.use((req, res, next) => {
       const requestId = req.headers["x-request-id"]?.toString() ?? randomUUID();
       res.setHeader("x-request-id", requestId);
-      next();
+      RequestContext.run({ requestId }, () => next());
     });
     app.getHttpAdapter().getInstance().disable("x-powered-by");
     const authGuard = app.get(AuthGuard);
