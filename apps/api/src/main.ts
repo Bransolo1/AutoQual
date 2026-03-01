@@ -6,6 +6,7 @@ import { AppModule } from "./app.module";
 import { AuthGuard } from "./auth/auth.guard";
 import { WorkspaceGuard } from "./auth/workspace.guard";
 import { RequestContext } from "./common/request-context";
+import { HttpExceptionFilter } from "./common/http-exception.filter";
 
 function bootstrap() {
   return NestFactory.create(AppModule, {
@@ -29,6 +30,7 @@ function bootstrap() {
     const authGuard = app.get(AuthGuard);
     const workspaceGuard = app.get(WorkspaceGuard);
     app.useGlobalGuards(authGuard, workspaceGuard);
+    app.useGlobalFilters(new HttpExceptionFilter());
     await app.listen(4000);
     const log = (obj: Record<string, unknown>) =>
       process.stdout.write(JSON.stringify({ ...obj, timestamp: new Date().toISOString() }) + "\n");
