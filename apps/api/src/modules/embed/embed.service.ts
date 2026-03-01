@@ -1,0 +1,84 @@
+import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { createHmac } from "crypto";
+import { PrismaService } from "../../prisma/prisma.service";
+
+type TokenPayload = {
+  studyId: string;
+  exp: number;
+};
+
+@Injectable()
+export class EmbedService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  private get secret() {
+    return process.env.EMBED_SECRET ?? "embed-secret";
+  }
+
+  private get webhookUrl() {
+    return process.env.EMBED_COMPLETION_WEBHOOK_URL ?? "";
+  }
+
+  createToken(studyId: string, expiresInMinutes = 60) {
+    const payload: TokenPayload = {
+      studyId,
+      exp: Date.now() + expiresInMinutes * 60 * 1000,
+    };
+    const data = Buffer.from(JSON.stringify(payload)).toString("base64url");
+    const signature = createHmac("sha256", this.secret).update(data).digest("base64url");
+    return `${data}.${signature}`;
+  }
+
+  verifyToken(token: string): TokenPayload {
+    const [data, signature] = token.split(".");
+    if (!data || !signature) throw new UnauthorizedException("Invalid token");
+    const expected = createHmac("sha256", this.secret).update(data).digest("base64url");
+    if (expected !== signature) throw new UnauthorizedException("Invalid token");
+    const payload = JSON.parse(Buffer.from(data, "base64url").toString("utf8")) as TokenPayload;
+    if (payload.exp < Date.now()) throw new UnauthorizedException("Token expired");
+    return payload;
+  }
+
+  async notifyCompletion(studyId: string, payload: Record<string, unknown>) {
+    try {
+      const study = await this.prisma.study.findUnique({
+        where: { id: studyId },
+        select: { workspaceId: true, projectId: true },
+      });
+      if (study) {
+        await this.prisma.notification.create({
+          data: {
+            userId: "demo-user",
+            type: "embed.completed",
+            payload: { studyId, projectId: study.projectId, ...payload },
+          },
+        });
+        await this.prisma.auditEvent.create({
+          data: {
+            workspaceId: study.workspaceId,
+            actorUserId: "system",
+            action: "embed.completed",
+            entityType: "study",
+            entityId: studyId,
+            metadata: payload,
+          },
+        });
+      }
+    } catch {
+      // best-effort: completion logging shouldn't block webhook
+    }
+    if (!this.webhookUrl) {
+      return { delivered: false, reason: "EMBED_COMPLETION_WEBHOOK_URL not set" };
+    }
+    try {
+      const res = await fetch(this.webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studyId, ...payload }),
+      });
+      return { delivered: res.ok, status: res.status };
+    } catch (error) {
+      return { delivered: false, reason: "request_failed", error: String(error) };
+    }
+  }
+}

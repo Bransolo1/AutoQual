@@ -1,0 +1,130 @@
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../../prisma/prisma.service";
+import { CreateInsightInput, CreateInsightVersionInput } from "./insights.dto";
+import { AiService } from "../ai/ai.service";
+
+@Injectable()
+export class InsightsService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly aiService: AiService,
+  ) {}
+
+  async list(studyId: string) {
+    return this.prisma.insight.findMany({ where: { studyId }, include: { versions: true } });
+  }
+
+  async getById(insightId: string) {
+    return this.prisma.insight.findUniqueOrThrow({
+      where: { id: insightId },
+      include: { versions: true, reviews: { include: { commentEntries: true } } },
+    });
+  }
+
+  async create(input: CreateInsightInput) {
+    return this.prisma.$transaction(async (tx) => {
+      const insight = await tx.insight.create({
+        data: {
+          studyId: input.studyId,
+          statement: input.statement,
+          supportingTranscriptSpans: input.supportingTranscriptSpans,
+          supportingVideoClips: input.supportingVideoClips,
+          confidenceScore: input.confidenceScore,
+          businessImplication: input.businessImplication,
+          tags: input.tags,
+          status: input.status,
+          versionNumber: 1,
+          reviewerComments: input.reviewerComments,
+        },
+      });
+
+      await tx.insightVersion.create({
+        data: {
+          insightId: insight.id,
+          versionNumber: 1,
+          content: {
+            statement: input.statement,
+            supportingTranscriptSpans: input.supportingTranscriptSpans,
+            supportingVideoClips: input.supportingVideoClips,
+            confidenceScore: input.confidenceScore,
+            businessImplication: input.businessImplication,
+            tags: input.tags,
+          },
+          reviewerComments: input.reviewerComments,
+        },
+      });
+
+      return insight;
+    });
+  }
+
+  async addVersion(insightId: string, input: CreateInsightVersionInput) {
+    return this.prisma.$transaction(async (tx) => {
+      const insight = await tx.insight.findUniqueOrThrow({ where: { id: insightId } });
+      const nextVersion = insight.versionNumber + 1;
+      await tx.insight.update({
+        where: { id: insightId },
+        data: {
+          statement: input.statement,
+          supportingTranscriptSpans: input.supportingTranscriptSpans,
+          supportingVideoClips: input.supportingVideoClips,
+          confidenceScore: input.confidenceScore,
+          businessImplication: input.businessImplication,
+          tags: input.tags,
+          versionNumber: nextVersion,
+          reviewerComments: input.reviewerComments,
+        },
+      });
+      return tx.insightVersion.create({
+        data: {
+          insightId,
+          versionNumber: nextVersion,
+          content: {
+            statement: input.statement,
+            supportingTranscriptSpans: input.supportingTranscriptSpans,
+            supportingVideoClips: input.supportingVideoClips,
+            confidenceScore: input.confidenceScore,
+            businessImplication: input.businessImplication,
+            tags: input.tags,
+          },
+          reviewerComments: input.reviewerComments,
+        },
+      });
+    });
+  }
+
+  async generateFromTranscript(studyId: string, transcriptText: string) {
+    const result = await this.aiService.generateInsight({ studyId, transcriptText });
+    return this.create({
+      studyId,
+      statement: result.statement,
+      supportingTranscriptSpans: result.supporting_transcript_spans,
+      supportingVideoClips: result.supporting_video_clips,
+      confidenceScore: result.confidence_score,
+      businessImplication: result.business_implication,
+      tags: result.tags,
+      status: result.status as CreateInsightInput["status"],
+      reviewerComments: result.reviewer_comments,
+    });
+  }
+
+  getTemplates() {
+    return [
+      {
+        id: "customer-journey",
+        title: "Customer Journey",
+        fields: ["moment", "emotion", "friction", "opportunity"],
+      },
+      {
+        id: "concept-testing",
+        title: "Concept Testing",
+        fields: ["appeal", "clarity", "differentiation", "barriers"],
+      },
+      {
+        id: "creative-eval",
+        title: "Creative Evaluation",
+        fields: ["attention", "message", "brand-fit", "improvements"],
+      },
+    ];
+  }
+}

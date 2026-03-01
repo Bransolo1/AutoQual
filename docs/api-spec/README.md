@@ -1,0 +1,125 @@
+# API Spec (Summary)
+
+## Core
+- `GET /health`
+- `GET /workspaces/:id`
+- `PATCH /workspaces/:id/settings` (body: retentionDays?, piiRedactionEnabled?, encryptionAtRest?, integrations?, servicesNotes?, activationViewThreshold?, feedbackScoreThreshold?)
+- `GET /trust-center/artifacts` (query: workspaceId)
+- `POST /trust-center/artifacts` (body: workspaceId, category, status, filename, storageKey, notes?)
+- `PATCH /trust-center/artifacts/:id` (body: status?, notes?)
+- `GET /trust-center/artifacts/:id/signed-url`
+- `POST /trust-center/upload-url` (body: storageKey, contentType?)
+- `GET /studies`, `POST /studies` (body: language?, mode?, allowMultipleEntries?, allowIncomplete?, screeningLogic?, interviewGuide?, syntheticEnabled?)
+- `POST /studies/:id/build` (body: brief)
+- `POST /studies/:id/synthetic-answer` (body: prompt)
+- `POST /studies/:id/localization` (body: checklist)
+- `POST /studies/:id/recruitment` (body: checklist)
+- `POST /studies/:id/activation` (body: checklist)
+- `POST /studies/:id/rollout` (body: rolloutPlan)
+- `POST /studies/:id/distribution` (body: distributionTracking)
+- `POST /studies/:id/delivery-health` (body: deliveryHealth)
+- `GET /studies/:id/segment-summary`
+- `GET /participants` (query: studyId?, workspaceId?, status?)
+- `POST /participants`, `POST /participants/recruit` (body: studyId, count?, locale?, source?, segment?)
+- `PATCH /participants/:id/verify` (body: status, fraudScore?)
+- `POST /participants/verify-bulk` (body: ids[], status, fraudScore?)
+- `GET /sessions`, `POST /sessions` (body: screeningAnswers?, consented?)
+- `GET /sessions/:id`
+- `PATCH /sessions/:id/status`
+- `POST /sessions/:id/consent`
+- `GET /transcripts`, `POST /transcripts`
+- `GET /transcripts/:id`
+- `PATCH /transcripts/:id/redact` (body: redactedContent, piiDetected, piiMetadata?)
+- `GET /themes`, `POST /themes`
+- `GET /insights`, `POST /insights`
+- `GET /insights/:id`
+- `GET /insights/templates`
+- `POST /insights/:id/versions`
+- `POST /insights/generate`
+- `GET /stories` (query: studyId), `POST /stories`
+- `GET /stories/:id`
+- `GET /stories/:id/markdown`
+- `GET /stories/:id/pdf`
+- `POST /stories/generate` (body: studyId)
+- `GET /reviews`, `POST /reviews`
+- `GET /reviews/:id`
+- `PATCH /reviews/:id/status`
+- `POST /reviews/:id/comments`
+- `PATCH /reviews/:id/assign`
+- `GET /exports`, `POST /exports`
+- `POST /moderator/:sessionId/next-turn` (body: lastUserMessage?, prefetchCount?, latencyMode?)
+- `POST /moderator/:sessionId/prefetch` (query: count?)
+- Pipeline: session completion enqueues transcription → redaction → themes + insights → search indexing
+- `POST /embed/token`, `GET /embed/:token`
+- `GET /media/artifacts`, `POST /media/artifacts`
+- `GET /media/artifacts/:id/signed-url`
+- `GET /media/clips/:id/thumbnail`
+- `POST /media/upload-url` (body: storageKey, contentType)
+- `POST /media/retention/archive` (query: workspaceId, retentionDays?)
+- `POST /media/chunk/init` (body: sessionId, fileName, contentType)
+- `POST /media/chunk/part` (body: uploadId, partNumber, etag)
+- `POST /media/chunk/complete` (body: uploadId, storageKey)
+- `POST /media/multipart/init` (body: storageKey, contentType)
+- `POST /media/multipart/part-url` (body: storageKey, uploadId, partNumber)
+- `POST /media/multipart/complete` (body: storageKey, uploadId, parts[], sessionId, type)
+- `GET /media/clips`, `POST /media/clips`
+- `POST /search/index/insight`
+- `POST /search/insights/query` (body: query, studyId?, limit?)
+- `GET /analysis/study/:studyId/summary`
+- `GET /ops/dashboard`
+  - response includes `recruitmentVerification` (pending, verified, flagged, rejected)
+  - response includes `stakeholderFeedback` (total, avgRating, sentiment, byDeliverableType, trendWeekly)
+  - response includes `activationMetrics` (totalViews, totalShares, totalDecisionsLogged)
+  - response includes `activationByDeliverableType` (type totals)
+  - response includes `activationTrendWeekly` (week, deliverableType, totalViews, totalShares, totalDecisionsLogged)
+- `POST /ops/dashboard/refresh` (query: workspaceId, studyId?)
+- `POST /ops/overdue-reminders` (query: workspaceId)
+  - response includes `overdueTaskDetails` (id, title, assigneeUserId, dueDate, projectId)
+- `GET /ops/overdue` (query: workspaceId, assigneeUserId?, q?)
+- `GET /ops/overdue.csv` (query: workspaceId, assigneeUserId?, q?)
+- `GET /ops/blocked` (query: workspaceId, q?)
+- `GET /ops/blocked.csv` (query: workspaceId, q?)
+  - blocked tasks include `blockedReason` and `blockedByTaskId`
+- `POST /ops/retention-run` (query: workspaceId)
+- `GET /projects/:id/client-view` (client portal payload)
+- `PATCH /projects/:id/share-checklist` (body: workspaceId, actorUserId, items)
+- `GET /projects/:id/analysis-delivery` (consolidated delivery manifest for end users)
+- `POST /media/upload` (multipart: file, sessionId, type)
+- `POST /media/artifacts/:id/process` (worker callback)
+- `GET /exports/study/:studyId/markdown`
+- `GET /exports/study/:studyId/json`
+- `GET /exports/study/:studyId/ppt-outline`
+- `GET /exports/study/:studyId/audio-recap`
+- `GET /exports/study/:studyId/pdf`
+- `GET /exports/study/:studyId/evidence-bundle`
+- `GET /exports/study/:studyId/evidence-bundle.csv`
+- `GET /exports/study/:studyId/deliverables`
+- `GET /exports/story/:storyId/markdown`
+- `GET /exports/story/:storyId/pdf`
+- `GET /exports/story/:storyId/audio-script`
+- `POST /embed/:token/complete`
+  - emits `embed.completed` notification and audit event when possible
+  - iframe posts `sensehub.embed.completed` to parent window
+
+## Project Management
+- `GET /projects` (query: workspaceId, status?, ownerUserId?, q?), `POST /projects`
+- `GET /milestones`, `POST /milestones`
+- `GET /tasks`, `POST /tasks` (body: workspaceId?, actorUserId?)
+- `PATCH /tasks/:id` (body: assigneeUserId?, reviewerUserId?, priority?, dueDate?, dependencies?, workspaceId?, actorUserId?)
+- `GET /tasks/dependency-order` (query: projectId)
+- `GET /tasks/:id`
+- `POST /tasks/:id/comments`
+- `POST /tasks/:id/share` (body: workspaceId, actorUserId, channel?, context?)
+- `PATCH /tasks/:id/status`
+- `GET /approvals` (query: linkedEntityId?, status?, linkedEntityType?, approvalId?), `POST /approvals` (body: workspaceId?, actorUserId?)
+- `PATCH /approvals/:id/status`
+- `GET /attachments`, `POST /attachments`
+- `GET /notifications` (query: userId, type?, unread?, limit?), `POST /notifications`
+- `PATCH /notifications/:id/read`
+- `GET /audit` (query: workspaceId, entityType?, entityId?, limit?)
+- `GET /feedback` (query: projectId)
+- `POST /feedback` (body: workspaceId, projectId, studyId?, deliverableType, deliverableId?, stakeholderName, stakeholderRole?, rating?, sentiment?, notes?)
+- `GET /activation-metrics` (query: projectId)
+- `POST /activation-metrics` (body: workspaceId, projectId, studyId?, deliverableType, deliverableId?, views?, shares?, decisionsLogged?)
+- `GET /alerts` (query: workspaceId)
+- `POST /alerts` (body: workspaceId, type, severity, payload)

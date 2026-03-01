@@ -1,0 +1,20 @@
+{
+  "name": "sensehub-auto-qual",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm --workspace apps/web run dev",
+    "dev:api": "npm --workspace apps/api run start:dev",
+    "dev:worker": "npm --workspace apps/worker run start:dev",
+    "build": "npm --workspace apps/web run build && npm --workspace apps/api run build && npm --workspace apps/worker run build",
+    "lint": "npm --workspace apps/web run lint && npm --workspace apps/api run lint && npm --workspace apps/worker run lint",
+    "test": "npm --workspace apps/web run test && npm --workspace apps/api run test && npm --workspace apps/worker run test",
+    "test:e2e": "npm --workspace apps/e2e run test",
+    "prisma:generate": "npm --workspace apps/api run prisma:generate",
+    "prisma:migrate": "npm --workspace apps/api run prisma:migrate",
+    "seed": "npm --workspace apps/api run seed"
+  }
+}

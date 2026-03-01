@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sensehub-web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sensehub-web
+  template:
+    metadata:
+      labels:
+        app: sensehub-web
+    spec:
+      containers:
+        - name: web
+          image: sensehub/web:latest
+          ports:
+            - containerPort: 3000
