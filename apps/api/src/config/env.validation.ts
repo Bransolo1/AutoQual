@@ -18,6 +18,8 @@ export const envValidationSchema = Joi.object({
   OTEL_EXPORTER_OTLP_ENDPOINT: Joi.string().uri(),
   WEB_BASE_URL: Joi.string().uri().required(),
   CORS_ORIGIN: Joi.string().required(),
+  JWT_ISSUER: Joi.string().uri().optional(),
+  JWT_AUDIENCE: Joi.string().optional(),
   THROTTLE_TTL: Joi.number().default(60),
   THROTTLE_LIMIT: Joi.number().default(120),
 }).unknown(true);

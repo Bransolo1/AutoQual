@@ -13,6 +13,8 @@ export type JwtPayload = {
   workspaceId: string;
   role: string;
   email?: string;
+  iss?: string;
+  aud?: string | string[];
 };
 
 @Injectable()
@@ -48,6 +50,8 @@ export class AuthGuard implements CanActivate {
 
     try {
       const payload = this.decodeJwt(bearer) as JwtPayload;
+      this.assertIssuer(payload);
+      this.assertAudience(payload);
       if (!payload.sub || !payload.workspaceId) {
         throw new UnauthorizedException("Invalid token payload");
       }
@@ -66,5 +70,31 @@ export class AuthGuard implements CanActivate {
     if (parts.length !== 3) throw new Error("Invalid JWT");
     const payload = Buffer.from(parts[1], "base64url").toString("utf8");
     return JSON.parse(payload) as unknown;
+  }
+
+  private assertIssuer(payload: JwtPayload) {
+    const expectedIssuer = process.env.JWT_ISSUER;
+    if (!expectedIssuer) return;
+    if (!payload.iss || payload.iss !== expectedIssuer) {
+      throw new UnauthorizedException("Invalid token issuer");
+    }
+  }
+
+  private assertAudience(payload: JwtPayload) {
+    const expectedAudience = process.env.JWT_AUDIENCE;
+    if (!expectedAudience) return;
+    const aud = payload.aud;
+    if (!aud) {
+      throw new UnauthorizedException("Invalid token audience");
+    }
+    if (Array.isArray(aud)) {
+      if (!aud.includes(expectedAudience)) {
+        throw new UnauthorizedException("Invalid token audience");
+      }
+      return;
+    }
+    if (aud !== expectedAudience) {
+      throw new UnauthorizedException("Invalid token audience");
+    }
   }
 }

@@ -22,6 +22,9 @@ The API validates required environment variables on boot. Missing or malformed v
 ### Error responses
 API errors are returned as structured JSON with a `requestId` for correlation across logs and audit events.
 
+### Auth token validation
+If `JWT_ISSUER` and `JWT_AUDIENCE` are set, the API will validate incoming JWT claims for enterprise SSO/OIDC compatibility.
+
 ### Tests
 - `npm run test` or run `.\install-deps.ps1 -RunTests` to install and test in one go.
 - `npm run test:e2e` (requires API + Web running; set `API_BASE_URL` and `WEB_BASE_URL` if not default).
