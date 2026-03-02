@@ -12,6 +12,7 @@ type AuditEvent = {
   action: string;
   entityType: string;
   entityId: string;
+  requestId?: string | null;
   createdAt: string;
   metadata?: Record<string, unknown>;
 };
@@ -23,6 +24,7 @@ export default function AuditLogPage() {
   const [limit, setLimit] = useState("50");
   const [actionFilter, setActionFilter] = useState("");
   const [actorFilter, setActorFilter] = useState("");
+  const [requestIdFilter, setRequestIdFilter] = useState("");
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [retentionStatus, setRetentionStatus] = useState<string | null>(null);
   const workspaceId = "demo-workspace-id";
@@ -40,6 +42,7 @@ export default function AuditLogPage() {
   const filteredEvents = useMemo(() => {
     const actionNeedle = actionFilter.trim().toLowerCase();
     const actorNeedle = actorFilter.trim().toLowerCase();
+    const requestNeedle = requestIdFilter.trim().toLowerCase();
     return events.filter((event) => {
       const actionMatch = actionNeedle
         ? event.action.toLowerCase().includes(actionNeedle)
@@ -47,9 +50,12 @@ export default function AuditLogPage() {
       const actorMatch = actorNeedle
         ? (event.actorUserId ?? "").toLowerCase().includes(actorNeedle)
         : true;
-      return actionMatch && actorMatch;
+      const requestMatch = requestNeedle
+        ? (event.requestId ?? "").toLowerCase().includes(requestNeedle)
+        : true;
+      return actionMatch && actorMatch && requestMatch;
     });
-  }, [events, actionFilter, actorFilter]);
+  }, [events, actionFilter, actorFilter, requestIdFilter]);
 
   const securityEvents = useMemo(() => {
     const match = ["token.", "audit.export", "retention.", "auth.", "sso."];
@@ -89,6 +95,12 @@ export default function AuditLogPage() {
           value={actorFilter}
           onChange={(event) => setActorFilter(event.target.value)}
           placeholder="Actor (user ID)"
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
+        />
+        <input
+          value={requestIdFilter}
+          onChange={(event) => setRequestIdFilter(event.target.value)}
+          placeholder="Request ID"
           className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
         />
         <select
@@ -254,6 +266,9 @@ export default function AuditLogPage() {
               {event.actorUserId && (
                 <p className="mt-1 text-xs text-gray-500">Actor: {event.actorUserId}</p>
               )}
+            {event.requestId && (
+              <p className="mt-1 text-xs text-gray-500">Request ID: {event.requestId}</p>
+            )}
             <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-500">
               {event.entityType === "task" && (
                 <Link href={`/projects?taskId=${event.entityId}`} className="text-brand-600 hover:underline">
