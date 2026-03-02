@@ -26,6 +26,9 @@ Use it to align onboarding, procurement, and security reviews.
 - Data residency overview: `docs/trust-center/DATA_RESIDENCY.md`
 - Vendor security questionnaire: `docs/trust-center/VENDOR_SECURITY_QUESTIONNAIRE.md`
 - SLA & support policy: `docs/trust-center/SLA_SUPPORT.md`
+- Data classification policy: `docs/trust-center/DATA_CLASSIFICATION.md`
+- Key management & rotation: `docs/trust-center/KEY_MANAGEMENT.md`
+- Incident response & breach notification: `docs/trust-center/INCIDENT_RESPONSE.md`
 
 ## Security Contacts
 - Security contact: security@company.test
