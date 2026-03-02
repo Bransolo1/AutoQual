@@ -51,6 +51,7 @@ export default function SettingsPage() {
   });
   const [revokeReason, setRevokeReason] = useState("");
   const [revokeStatus, setRevokeStatus] = useState<string | null>(null);
+  const [ssoConfig, setSsoConfig] = useState<{ enabled: boolean; issuerUrl: string; clientId: string; redirectUri: string } | null>(null);
 
   const loadSettings = async () => {
     const res = await fetch(`${API_BASE}/workspaces/demo-workspace-id`, { headers: HEADERS });
@@ -76,6 +77,9 @@ export default function SettingsPage() {
           setLastRetention(new Date(retention.createdAt).toLocaleString());
         }
       });
+    fetch(`${API_BASE}/auth/sso/config`, { headers: HEADERS })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setSsoConfig);
   }, []);
 
   const updateSettings = async () => {
@@ -523,6 +527,22 @@ export default function SettingsPage() {
             Revoke token
           </button>
           {revokeStatus && <span className="text-xs text-gray-500">{revokeStatus}</span>}
+        </div>
+      </section>
+
+      <section className="mt-8 max-w-xl rounded-2xl bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold">SSO configuration</h2>
+        <p className="mt-2 text-sm text-gray-600">
+          Read-only view of IdP settings configured for this workspace.
+        </p>
+        <div className="mt-4 space-y-2 text-sm text-gray-600">
+          <div className="flex items-center justify-between">
+            <span>Status</span>
+            <span className="text-xs text-gray-500">{ssoConfig?.enabled ? "Enabled" : "Disabled"}</span>
+          </div>
+          <div className="text-xs text-gray-500">Issuer: {ssoConfig?.issuerUrl || "Not set"}</div>
+          <div className="text-xs text-gray-500">Client ID: {ssoConfig?.clientId || "Not set"}</div>
+          <div className="text-xs text-gray-500">Redirect URI: {ssoConfig?.redirectUri || "Not set"}</div>
         </div>
       </section>
     </main>
