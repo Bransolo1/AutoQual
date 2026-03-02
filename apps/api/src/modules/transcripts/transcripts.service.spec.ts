@@ -34,9 +34,12 @@ describe("TranscriptsService redaction", () => {
         create: vi.fn().mockResolvedValue({ id: "tx-2" }),
       },
       session: {
-        update: vi.fn().mockResolvedValue({ id: "s1", studyId: "study-1" }),
+        update: vi.fn().mockResolvedValue({ id: "s1", studyId: "study-1", study: { workspaceId: "workspace-1" } }),
       },
       notification: {
+        create: vi.fn(),
+      },
+      alertEvent: {
         create: vi.fn(),
       },
     };

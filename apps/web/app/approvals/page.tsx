@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
@@ -37,6 +38,7 @@ export default function ApprovalsPage() {
   const [createEntityId, setCreateEntityId] = useState("");
   const [evidenceGaps, setEvidenceGaps] = useState<Record<string, number>>({});
   const [approvalStatusMessage, setApprovalStatusMessage] = useState("");
+  const [createApprovalMessage, setCreateApprovalMessage] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -160,6 +162,10 @@ export default function ApprovalsPage() {
           <option value="deliverable_pack">Deliverable pack</option>
         </select>
       </div>
+      <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600">
+        Evidence requirements: insight set approvals require clips or transcript spans for every insight. Approvals will
+        be blocked if evidence is missing.
+      </div>
       {approvalStatusMessage && (
         <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700">
           {approvalStatusMessage}
@@ -189,7 +195,7 @@ export default function ApprovalsPage() {
             type="button"
             onClick={async () => {
               if (!createEntityId.trim()) return;
-              await fetch(`${API_BASE}/approvals`, {
+              const res = await fetch(`${API_BASE}/approvals`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", ...HEADERS },
                 body: JSON.stringify({
@@ -201,7 +207,17 @@ export default function ApprovalsPage() {
                   actorUserId: "demo-user",
                 }),
               });
+              if (!res.ok) {
+                const payload = await res.json().catch(() => null);
+                const message =
+                  typeof payload?.message === "string"
+                    ? payload.message
+                    : "Unable to create approval.";
+                setCreateApprovalMessage(message);
+                return;
+              }
               setCreateEntityId("");
+              setCreateApprovalMessage("");
               await refreshApprovals();
             }}
             className="rounded-full bg-brand-500 px-4 py-2 text-sm font-medium text-white"
@@ -209,8 +225,23 @@ export default function ApprovalsPage() {
             Create approval
           </button>
         </div>
+        {createApprovalMessage && (
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700">
+            {createApprovalMessage}
+          </div>
+        )}
       </div>
       <div className="mt-6 grid gap-4">
+        {approvals.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-5 text-sm text-slate-600">
+            No approvals yet. If an insight set is blocked, review evidence coverage in the Analysis Quality panel on
+            the{" "}
+            <a href="/studies" className="text-brand-600 hover:underline">
+              Studies page
+            </a>
+            .
+          </div>
+        )}
         {approvals.map((approval) => (
           <div key={approval.id} className="rounded-2xl bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
@@ -226,6 +257,11 @@ export default function ApprovalsPage() {
             <p className="mt-2 text-sm text-gray-500">
               Entity: {approval.linkedEntityId} · Requested by {approval.requestedByUserId}
             </p>
+            {approval.linkedEntityType === "insight_set" && (
+              <p className="mt-1 text-xs text-amber-700">
+                Evidence gaps: {evidenceGaps[approval.linkedEntityId] ?? 0}
+              </p>
+            )}
             {approval.linkedEntityType === "deliverable_pack" && (
               <p className="mt-1 text-xs text-gray-500">
                 Deliverables:{" "}
@@ -251,7 +287,11 @@ export default function ApprovalsPage() {
                 <button
                   type="button"
                   onClick={() => updateStatus(approval.id, "approved")}
-                  className="rounded-full bg-green-600 px-4 py-2 text-sm font-medium text-white"
+                  disabled={
+                    approval.linkedEntityType === "insight_set" &&
+                    (evidenceGaps[approval.linkedEntityId] ?? 0) > 0
+                  }
+                  className="rounded-full bg-green-600 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Approve
                 </button>

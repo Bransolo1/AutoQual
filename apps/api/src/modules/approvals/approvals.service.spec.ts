@@ -28,6 +28,32 @@ describe("ApprovalsService", () => {
     expect(prisma.approval.create).not.toHaveBeenCalled();
   });
 
+  it("allows creating approved insight_set when evidence exists", async () => {
+    const prisma = {
+      approval: { create: vi.fn().mockResolvedValue({ id: "approval-1", status: "approved" }) },
+      insight: {
+        findMany: vi.fn().mockResolvedValue([
+          { supportingTranscriptSpans: ["span-1"], supportingVideoClips: [] },
+        ]),
+      },
+      auditEvent: { create: vi.fn() },
+      notification: { create: vi.fn() },
+    } as any;
+    const service = new ApprovalsService(prisma);
+
+    const result = await service.create({
+      linkedEntityType: "insight_set",
+      linkedEntityId: "study-1",
+      status: "approved",
+      requestedByUserId: "user-1",
+      workspaceId: "workspace-1",
+      actorUserId: "user-1",
+    });
+
+    expect(result.status).toBe("approved");
+    expect(prisma.approval.create).toHaveBeenCalled();
+  });
+
   it("blocks approving insight_set when evidence is missing", async () => {
     const prisma = {
       approval: {

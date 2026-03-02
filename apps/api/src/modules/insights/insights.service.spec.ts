@@ -62,6 +62,33 @@ describe("InsightsService versioning", () => {
     expect(tx.insight.create).not.toHaveBeenCalled();
   });
 
+  it("allows approved insight creation when evidence exists", async () => {
+    const tx = {
+      insight: { create: vi.fn().mockResolvedValue({ id: "insight-1" }) },
+      insightVersion: { create: vi.fn() },
+    };
+    const prisma = {
+      $transaction: (cb: (trx: typeof tx) => unknown) => cb(tx),
+    } as any;
+    const service = new InsightsService(prisma, {} as any);
+
+    const result = await service.create({
+      studyId: "study-1",
+      statement: "Approved with evidence",
+      supportingTranscriptSpans: ["span-1"],
+      supportingVideoClips: [],
+      confidenceScore: 0.8,
+      businessImplication: "test",
+      tags: ["driver"],
+      status: "approved",
+      reviewerComments: [],
+    });
+
+    expect(result).toEqual({ id: "insight-1" });
+    expect(tx.insight.create).toHaveBeenCalled();
+    expect(tx.insightVersion.create).toHaveBeenCalled();
+  });
+
   it("blocks approved insight version without evidence", async () => {
     const tx = {
       insight: {

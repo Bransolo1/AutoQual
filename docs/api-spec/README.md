@@ -38,6 +38,7 @@
 - `GET /insights/templates`
 - `POST /insights/:id/versions`
 - `POST /insights/generate`
+  - creating or versioning an approved insight requires evidence (clips or transcript spans)
 - `GET /stories` (query: studyId), `POST /stories`
 - `GET /stories/:id`
 - `GET /stories/:id/markdown`
@@ -48,6 +49,7 @@
 - `PATCH /reviews/:id/status`
 - `POST /reviews/:id/comments`
 - `PATCH /reviews/:id/assign`
+  - approving a review requires evidence-backed insights
 - `GET /exports`, `POST /exports`
 - `POST /moderator/:sessionId/next-turn` (body: lastUserMessage?, prefetchCount?, latencyMode?)
 - `POST /moderator/:sessionId/prefetch` (query: count?)
@@ -119,6 +121,8 @@
 - `PATCH /tasks/:id/status`
 - `GET /approvals` (query: linkedEntityId?, status?, linkedEntityType?, approvalId?), `POST /approvals` (body: workspaceId?, actorUserId?)
 - `PATCH /approvals/:id/status`
+  - approving `insight_set` requires evidence on all insights (`insight_set_requires_evidence`)
+  - creating an approved `insight_set` also requires evidence (`insight_set_requires_evidence`)
 - `GET /attachments`, `POST /attachments`
 - `GET /notifications` (query: userId, type?, unread?, limit?), `POST /notifications`
 - `PATCH /notifications/:id/read`

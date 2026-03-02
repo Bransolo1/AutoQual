@@ -14,6 +14,12 @@ describe("ExportsService reporting", () => {
           participants: [{ segment: "core" }, { segment: "core" }, { segment: "new" }],
         }),
       },
+      transcript: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      clip: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
     };
     const service = new ExportsService(prisma as never);
     const payload = await service.generateJson("study-1");

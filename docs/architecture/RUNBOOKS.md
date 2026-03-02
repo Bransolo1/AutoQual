@@ -38,7 +38,13 @@
   - worker job failures
 
 ## Monitoring stack (local)
+Windows note: ensure Docker Desktop is running with WSL2 enabled.
 1. Start monitoring services:
    - `docker compose -f infra/docker/docker-compose.yml up -d prometheus grafana`
 2. Prometheus: http://localhost:9090
 3. Grafana: http://localhost:3001 (admin / admin)
+
+## Docker Desktop (Windows) quick fix
+1. Confirm WSL2 is installed: `wsl --install --no-distribution` (requires reboot).
+2. Reboot and open Docker Desktop until it reports Running.
+3. If the daemon still fails, restart Docker Desktop and try again.

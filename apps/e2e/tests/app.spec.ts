@@ -247,10 +247,22 @@ test.describe("Sensehub Auto Qual E2E", () => {
 
     await page.goto(`/approvals?linkedEntityId=${studyId}&linkedEntityType=insight_set`);
     await expect(page.getByText("Evidence gaps detected")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Approve" }).first()).toBeDisabled();
 
     await addInsightVersion(apiContext, insightId as string, "Needs evidence", [], ["span-1"]);
 
     await page.reload();
     await expect(page.getByText("Evidence gaps detected")).toHaveCount(0);
+  });
+
+  test("approvals empty state guidance shows", async ({ page }) => {
+    const apiContext = await request.newContext({ baseURL: apiBaseUrl, extraHTTPHeaders: headers });
+    await waitForApi();
+    const randomId = `empty-${Date.now()}`;
+    await page.goto(`/approvals?linkedEntityId=${randomId}&linkedEntityType=insight_set`);
+    await expect(page.getByText("No approvals yet.")).toBeVisible();
+    await expect(page.getByText("Analysis Quality panel on the Studies page.")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Studies page" })).toBeVisible();
+    await apiContext.dispose();
   });
 });

@@ -1025,6 +1025,9 @@ export default function StudiesPage() {
         <p className="mt-1 text-sm text-slate-600">
           Track evidence coverage and insight traceability before delivery.
         </p>
+        <p className="mt-1 text-xs text-slate-500">
+          Evidence gaps will block insight set approvals until clips or transcript spans are attached.
+        </p>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="text-sm text-slate-600">
             Study
@@ -1076,6 +1079,9 @@ export default function StudiesPage() {
           <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
             <div className="text-xs uppercase text-amber-600">Evidence gaps</div>
             <div className="mt-1 text-lg font-semibold">{evidenceCoverage.gapCount} insights missing evidence</div>
+            <div className="mt-1 text-xs text-amber-700">
+              Fix: add clips or transcript spans to each insight before approvals.
+            </div>
             <ul className="mt-2 space-y-1 text-xs text-amber-700">
               {evidenceCoverage.gaps.slice(0, 4).map((gap) => (
                 <li key={gap.insightId}>{gap.statement}</li>
