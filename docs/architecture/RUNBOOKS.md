@@ -70,3 +70,14 @@ Windows note: ensure Docker Desktop is running with WSL2 enabled.
 - Web unit tests: passing
 - Worker unit tests: passing
 - E2E: blocked until Docker Desktop is running
+
+## Operational evidence checklist
+- RTO/RPO targets documented and approved.
+- Backup + restore drill completed; evidence archived.
+- Subprocessors list validated; data residency commitments documented.
+- SLA/support hours and escalation matrix finalized.
+- CI security scans and SBOM artifacts captured.
+- SOC2 control evidence links attached.
+
+## Evidence references
+- Evidence index: `docs/architecture/EVIDENCE_INDEX.md`

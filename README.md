@@ -28,6 +28,7 @@ Enterprise-grade AI qualitative research platform for moderated interviews, anal
 - `PRIVACY.md`
 - Trust center overview: `docs/trust-center/README.md`
 - BCP/DR plan: `docs/architecture/BCP_DR.md`
+- Operational evidence index: `docs/architecture/EVIDENCE_INDEX.md`
 - Incident response policy: `docs/trust-center/INCIDENT_RESPONSE.md`
 - Secure SDLC policy: `docs/trust-center/SDLC_SECURITY.md`
 - Security program overview: `docs/compliance/SECURITY_PROGRAM.md`
