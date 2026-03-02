@@ -28,7 +28,7 @@ export class SearchService {
     try {
       await fetch(`${url}/insights/_doc/${insight.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: this.buildHeaders(),
         body: JSON.stringify(payload),
       });
       return { indexed: true, payload };
@@ -61,7 +61,7 @@ export class SearchService {
     try {
       const res = await fetch(`${url}/insights/_search`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: this.buildHeaders(),
         body: JSON.stringify({
           size: limit,
           query: {
@@ -81,5 +81,44 @@ export class SearchService {
     } catch (error) {
       return { results: [], indexed: false, reason: "search_failed", error: String(error) };
     }
+  }
+
+  async searchInsightsWithEvidence(input: SearchInsightsInput) {
+    const base = await this.searchInsights(input);
+    const ids = (base.results as Array<Record<string, unknown>>)
+      .map((result) => String(result.id ?? ""))
+      .filter(Boolean);
+    if (!ids.length) {
+      return { ...base, evidence: [] };
+    }
+    const insights = await this.prisma.insight.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        statement: true,
+        supportingTranscriptSpans: true,
+        supportingVideoClips: true,
+      },
+    });
+    return {
+      ...base,
+      evidence: insights.map((insight) => ({
+        id: insight.id,
+        statement: insight.statement,
+        transcriptSpans: insight.supportingTranscriptSpans,
+        videoClips: insight.supportingVideoClips,
+      })),
+    };
+  }
+
+  private buildHeaders() {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const username = process.env.OPENSEARCH_USERNAME;
+    const password = process.env.OPENSEARCH_PASSWORD;
+    if (username && password) {
+      const token = Buffer.from(`${username}:${password}`).toString("base64");
+      headers.Authorization = `Basic ${token}`;
+    }
+    return headers;
   }
 }

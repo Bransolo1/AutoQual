@@ -20,6 +20,11 @@ export type CreateInsightVersionInput = {
   reviewerComments: string[];
 };
 
+export type AddInsightEvidenceInput = {
+  supportingTranscriptSpans?: string[];
+  supportingVideoClips?: string[];
+};
+
 export type GenerateInsightInput = {
   studyId: string;
   transcriptText: string;

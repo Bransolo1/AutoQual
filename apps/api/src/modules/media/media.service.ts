@@ -30,6 +30,7 @@ export class MediaService {
         sessionId: input.sessionId,
         type: input.type,
         storageKey: input.storageKey,
+        status: "uploaded",
       },
     });
     await this.queue.addMediaProcess(artifact.id);
@@ -40,12 +41,20 @@ export class MediaService {
     const artifact = await this.prisma.mediaArtifact.findUniqueOrThrow({
       where: { id: artifactId },
     });
+    await this.prisma.mediaArtifact.update({
+      where: { id: artifact.id },
+      data: { status: "processing" },
+    });
     await this.prisma.clip.create({
       data: {
         mediaArtifactId: artifact.id,
         startMs: 0,
         endMs: 60000,
       },
+    });
+    await this.prisma.mediaArtifact.update({
+      where: { id: artifact.id },
+      data: { status: "ready" },
     });
     return { processed: true, artifactId };
   }

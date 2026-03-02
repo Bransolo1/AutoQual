@@ -7,3 +7,9 @@ export type SearchInsightsInput = {
   studyId?: string;
   limit?: number;
 };
+
+export type SearchInsightsWithEvidenceInput = {
+  query: string;
+  studyId?: string;
+  limit?: number;
+};

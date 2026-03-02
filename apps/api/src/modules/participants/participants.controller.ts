@@ -3,6 +3,7 @@ import { ParticipantsService } from "./participants.service";
 import {
   CreateParticipantInput,
   RecruitParticipantsInput,
+  ScreenParticipantInput,
   VerifyParticipantInput,
   VerifyParticipantsBulkInput,
 } from "./participants.dto";
@@ -28,6 +29,11 @@ export class ParticipantsController {
   @Post("recruit")
   recruit(@Body() input: RecruitParticipantsInput) {
     return this.participantsService.recruit(input);
+  }
+
+  @Post("screen")
+  screen(@Body() input: ScreenParticipantInput) {
+    return this.participantsService.screen(input);
   }
 
   @Patch(":id/verify")

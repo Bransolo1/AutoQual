@@ -1,16 +1,18 @@
 import { Injectable } from "@nestjs/common";
+import { EnvSecretsProvider } from "./providers/env-secrets.provider";
+import { VaultSecretsProvider } from "./providers/vault-secrets.provider";
+import { SecretsProvider } from "./providers/secrets-provider";
 
 @Injectable()
 export class SecretsService {
-  health() {
-    const provider = process.env.SECRETS_PROVIDER ?? "env";
-    return {
-      provider,
-      status: provider === "vault" ? "stubbed" : "ready",
-      message:
-        provider === "vault"
-          ? "Vault integration placeholder. Configure VAULT_ADDR and credentials."
-          : "Environment-based secrets active.",
-    };
+  private providers: Record<string, SecretsProvider> = {
+    env: new EnvSecretsProvider(),
+    vault: new VaultSecretsProvider(),
+  };
+
+  async health() {
+    const providerKey = process.env.SECRETS_PROVIDER ?? "env";
+    const provider = this.providers[providerKey] ?? this.providers.env;
+    return provider.health();
   }
 }

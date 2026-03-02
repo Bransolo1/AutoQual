@@ -46,3 +46,7 @@ export type UpdateDeliveryHealthInput = {
 export type UpdateQuotaTargetsInput = {
   quotaTargets: Record<string, number>;
 };
+
+export type UpdateInterviewGuideInput = {
+  guide: Record<string, unknown>;
+};

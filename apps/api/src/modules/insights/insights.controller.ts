@@ -1,6 +1,11 @@
 import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
 import { InsightsService } from "./insights.service";
-import { CreateInsightInput, CreateInsightVersionInput, GenerateInsightInput } from "./insights.dto";
+import {
+  AddInsightEvidenceInput,
+  CreateInsightInput,
+  CreateInsightVersionInput,
+  GenerateInsightInput,
+} from "./insights.dto";
 
 @Controller("insights")
 export class InsightsController {
@@ -34,5 +39,10 @@ export class InsightsController {
   @Post(":id/versions")
   addVersion(@Param("id") id: string, @Body() input: CreateInsightVersionInput) {
     return this.insightsService.addVersion(id, input);
+  }
+
+  @Post(":id/evidence")
+  addEvidence(@Param("id") id: string, @Body() input: AddInsightEvidenceInput) {
+    return this.insightsService.addEvidence(id, input);
   }
 }

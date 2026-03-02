@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Post, Query } from "@nestjs/common";
 import { ThemesService } from "./themes.service";
-import { CreateThemeInput } from "./themes.dto";
+import { CreateThemeInput, GenerateThemesInput } from "./themes.dto";
 
 @Controller("themes")
 export class ThemesController {
@@ -14,5 +14,10 @@ export class ThemesController {
   @Post()
   create(@Body() input: CreateThemeInput) {
     return this.themesService.create(input);
+  }
+
+  @Post("generate")
+  generate(@Body() input: GenerateThemesInput) {
+    return this.themesService.generateThemes(input.studyId);
   }
 }

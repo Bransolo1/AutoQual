@@ -51,4 +51,21 @@ describe("TranscriptsService redaction", () => {
     expect(queueService.addTranscriptRedaction).toHaveBeenCalledWith("tx-2");
     expect(prisma.transcript.create).toHaveBeenCalled();
   });
+
+  it("detects basic PII entities", async () => {
+    const prisma = {
+      transcript: {
+        findUniqueOrThrow: vi.fn().mockResolvedValue({
+          content: "Email me at test@example.com or call 555-111-2222.",
+        }),
+      },
+    };
+    const queueService = { addTranscriptRedaction: vi.fn() };
+    const service = new TranscriptsService(prisma as never, queueService as never);
+
+    const result = await service.detectPii("tx-3", { locale: "en" });
+
+    expect(result.entities.length).toBeGreaterThan(0);
+    expect(result.counts.email).toBe(1);
+  });
 });

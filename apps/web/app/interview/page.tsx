@@ -30,9 +30,27 @@ export default function InterviewPage() {
   const [prefetchedPrompts, setPrefetchedPrompts] = useState<string[]>([]);
   const [promptStatus, setPromptStatus] = useState<string | null>(null);
   const [completionStatus, setCompletionStatus] = useState<string | null>(null);
+  const [participantEmail, setParticipantEmail] = useState("");
+  const [sessionInfo, setSessionInfo] = useState<{ participantId: string; sessionId: string } | null>(null);
+  const [sessionStatus, setSessionStatus] = useState<string | null>(null);
+  const [turnStatus, setTurnStatus] = useState<string | null>(null);
+  const [transcriptStatus, setTranscriptStatus] = useState<string | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const lastBlobRef = useRef<Blob | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem("sensehub.embed.session");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored) as { participantId: string; sessionId: string };
+        setSessionInfo(parsed);
+      } catch {
+        // ignore parse errors
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (!recording) return;
@@ -293,6 +311,69 @@ export default function InterviewPage() {
     }
   };
 
+  const createEmbedSession = async () => {
+    if (!embedToken || !participantEmail.trim()) return;
+    setSessionStatus("Starting session...");
+    const res = await fetch(`${API_BASE}/embed/${embedToken}/session`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: participantEmail.trim(),
+        consented: consentAccepted,
+      }),
+    });
+    if (!res.ok) {
+      setSessionStatus("Unable to start session.");
+      return;
+    }
+    const data = await res.json();
+    const nextSession = { participantId: data.participantId, sessionId: data.sessionId };
+    setSessionInfo(nextSession);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("sensehub.embed.session", JSON.stringify(nextSession));
+    }
+    setSessionStatus("Session ready.");
+  };
+
+  const updateConsent = async (nextValue: boolean) => {
+    setConsentAccepted(nextValue);
+    if (!embedToken || !sessionInfo) return;
+    await fetch(`${API_BASE}/embed/${embedToken}/consent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: sessionInfo.sessionId, consented: nextValue }),
+    });
+  };
+
+  const saveResponse = async () => {
+    if (!embedToken || !sessionInfo) return;
+    if (!lastResponse.trim()) {
+      setTurnStatus("Add a response summary before saving.");
+      return;
+    }
+    setTurnStatus("Saving response...");
+    const turnRes = await fetch(`${API_BASE}/embed/${embedToken}/turn`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: sessionInfo.sessionId,
+        speaker: "participant",
+        content: lastResponse.trim(),
+      }),
+    });
+    setTurnStatus(turnRes.ok ? "Response saved." : "Unable to save response.");
+    setTranscriptStatus("Saving transcript...");
+    const transcriptRes = await fetch(`${API_BASE}/embed/${embedToken}/transcript`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: sessionInfo.sessionId,
+        content: lastResponse.trim(),
+      }),
+    });
+    setTranscriptStatus(transcriptRes.ok ? "Transcript saved." : "Unable to save transcript.");
+  };
+
   return (
     <main className="min-h-screen px-8 py-10">
       <h1 className="text-2xl font-semibold">Participant Interview</h1>
@@ -312,7 +393,7 @@ export default function InterviewPage() {
           <input
             type="checkbox"
             checked={consentAccepted}
-            onChange={(event) => setConsentAccepted(event.target.checked)}
+            onChange={(event) => updateConsent(event.target.checked)}
           />
           I consent to recording and understand my responses are confidential.
         </label>
@@ -490,6 +571,45 @@ export default function InterviewPage() {
             <p className="mt-2 text-sm text-slate-600">
               When you are finished, submit your response to complete the interview.
             </p>
+            <div className="mt-4 grid gap-3">
+              <label className="text-sm text-slate-600">
+                Participant email
+                <input
+                  value={participantEmail}
+                  onChange={(event) => setParticipantEmail(event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-slate-200 p-2"
+                  placeholder="name@example.com"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={createEmbedSession}
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700"
+              >
+                Start session
+              </button>
+              {sessionStatus && <p className="text-xs text-slate-500">{sessionStatus}</p>}
+              {sessionInfo && (
+                <p className="text-xs text-slate-500">
+                  Session ID: {sessionInfo.sessionId}
+                </p>
+              )}
+              {sessionInfo && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      window.localStorage.removeItem("sensehub.embed.session");
+                    }
+                    setSessionInfo(null);
+                    setSessionStatus("Session cleared.");
+                  }}
+                  className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-600"
+                >
+                  Clear session
+                </button>
+              )}
+            </div>
             <button
               type="button"
               onClick={completeEmbeddedInterview}
@@ -497,7 +617,18 @@ export default function InterviewPage() {
             >
               Submit interview
             </button>
+            {sessionInfo && (
+              <button
+                type="button"
+                onClick={saveResponse}
+                className="mt-3 rounded-full border border-brand-500 px-4 py-2 text-sm font-medium text-brand-600"
+              >
+                Save response summary
+              </button>
+            )}
             {completionStatus && <p className="mt-3 text-xs text-slate-500">{completionStatus}</p>}
+            {turnStatus && <p className="mt-2 text-xs text-slate-500">{turnStatus}</p>}
+            {transcriptStatus && <p className="mt-2 text-xs text-slate-500">{transcriptStatus}</p>}
           </section>
         )}
       </div>

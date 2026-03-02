@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import { TranscriptsService } from "./transcripts.service";
-import { CreateTranscriptInput, RedactTranscriptInput } from "./transcripts.dto";
+import { CreateTranscriptInput, DetectPiiInput, RedactTranscriptInput } from "./transcripts.dto";
 
 @Controller("transcripts")
 export class TranscriptsController {
@@ -24,5 +24,10 @@ export class TranscriptsController {
   @Patch(":id/redact")
   redact(@Param("id") id: string, @Body() input: RedactTranscriptInput) {
     return this.transcriptsService.redact(id, input);
+  }
+
+  @Post(":id/detect-pii")
+  detectPii(@Param("id") id: string, @Body() input: DetectPiiInput) {
+    return this.transcriptsService.detectPii(id, input);
   }
 }

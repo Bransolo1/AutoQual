@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
-import { CreateInsightInput, CreateInsightVersionInput } from "./insights.dto";
+import { AddInsightEvidenceInput, CreateInsightInput, CreateInsightVersionInput } from "./insights.dto";
 import { AiService } from "../ai/ai.service";
 
 @Injectable()
@@ -103,6 +103,30 @@ export class InsightsService {
           reviewerComments: input.reviewerComments,
         },
       });
+    });
+  }
+
+  async addEvidence(insightId: string, input: AddInsightEvidenceInput) {
+    const insight = await this.prisma.insight.findUniqueOrThrow({ where: { id: insightId } });
+    const transcriptSpans = Array.isArray(insight.supportingTranscriptSpans)
+      ? (insight.supportingTranscriptSpans as string[])
+      : [];
+    const videoClips = Array.isArray(insight.supportingVideoClips)
+      ? (insight.supportingVideoClips as string[])
+      : [];
+    const nextTranscriptSpans = input.supportingTranscriptSpans
+      ? [...new Set([...transcriptSpans, ...input.supportingTranscriptSpans])]
+      : transcriptSpans;
+    const nextVideoClips = input.supportingVideoClips
+      ? [...new Set([...videoClips, ...input.supportingVideoClips])]
+      : videoClips;
+
+    return this.prisma.insight.update({
+      where: { id: insightId },
+      data: {
+        supportingTranscriptSpans: nextTranscriptSpans,
+        supportingVideoClips: nextVideoClips,
+      },
     });
   }
 

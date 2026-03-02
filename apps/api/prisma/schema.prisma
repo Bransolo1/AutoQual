@@ -321,12 +321,15 @@ model Participant {
   locale    String?
   source    String?
   segment   String?
+  deviceFingerprint String?
   verificationStatus String @default("pending")
   fraudScore Int?
   verifiedAt DateTime?
   createdAt DateTime @default(now())
   study     Study    @relation(fields: [studyId], references: [id])
   sessions  Session[]
+
+  @@index([deviceFingerprint])
 }
 
 model Session {
@@ -362,6 +365,8 @@ model Transcript {
   redactedContent String?
   piiDetected Boolean @default(false)
   piiMetadata Json?
+  wordTimestamps Json?
+  diarization Json?
   createdAt DateTime @default(now())
   session   Session  @relation(fields: [sessionId], references: [id])
 }
@@ -371,6 +376,7 @@ model MediaArtifact {
   sessionId String
   type      String
   storageKey String
+  status    String   @default("uploaded")
   createdAt DateTime @default(now())
   session   Session  @relation(fields: [sessionId], references: [id])
   clips     Clip[]

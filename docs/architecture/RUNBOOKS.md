@@ -23,6 +23,12 @@
 2. Local dev:
    - `npm run prisma:migrate`
 
+## Secrets rotation
+1. Identify secrets in use (JWT, S3, DB, OpenSearch, SSO).
+2. Rotate in secrets backend (Vault or environment store).
+3. Update k8s Secret and redeploy workloads.
+4. Verify `/secrets/health` and run smoke tests.
+
 ## Incident response (API down)
 1. Check API logs for startup failures.
 2. Verify DB/Redis/OpenSearch/MinIO connectivity.

@@ -82,4 +82,57 @@ export class EmbedService {
       return { delivered: false, reason: "request_failed", error: String(error) };
     }
   }
+
+  async createSession(
+    studyId: string,
+    input: { email: string; locale?: string; source?: string; segment?: string; consented?: boolean }
+  ) {
+    const participant = await this.prisma.participant.create({
+      data: {
+        studyId,
+        email: input.email,
+        locale: input.locale ?? null,
+        source: input.source ?? "embed",
+        segment: input.segment ?? null,
+      },
+    });
+    const session = await this.prisma.session.create({
+      data: {
+        studyId,
+        participantId: participant.id,
+        status: "in_progress",
+        consented: input.consented ?? false,
+      },
+    });
+    return { participantId: participant.id, sessionId: session.id };
+  }
+
+  async recordTurn(input: { sessionId: string; speaker: string; content: string }) {
+    return this.prisma.turn.create({
+      data: {
+        sessionId: input.sessionId,
+        speaker: input.speaker,
+        content: input.content,
+      },
+    });
+  }
+
+  async createTranscript(input: { sessionId: string; content: string }) {
+    return this.prisma.transcript.create({
+      data: {
+        sessionId: input.sessionId,
+        content: input.content,
+      },
+    });
+  }
+
+  async updateConsent(input: { sessionId: string; consented: boolean }) {
+    return this.prisma.session.update({
+      where: { id: input.sessionId },
+      data: {
+        consented: input.consented,
+        status: input.consented ? "in_progress" : "pending_consent",
+      },
+    });
+  }
 }

@@ -9,6 +9,7 @@ import {
   UpdateDistributionTrackingInput,
   UpdateDeliveryHealthInput,
   UpdateQuotaTargetsInput,
+  UpdateInterviewGuideInput,
 } from "./studies.dto";
 
 @Controller("studies")
@@ -28,6 +29,14 @@ export class StudiesController {
   @Post(":id/build")
   buildFromBrief(@Param("id") id: string, @Body("brief") brief: string) {
     return this.studiesService.buildFromBrief(id, brief ?? "");
+  }
+
+  @Post(":id/guide")
+  updateGuide(
+    @Param("id") id: string,
+    @Body() input: UpdateInterviewGuideInput,
+  ) {
+    return this.studiesService.updateInterviewGuide(id, input.guide ?? {});
   }
 
   @Post(":id/synthetic-answer")

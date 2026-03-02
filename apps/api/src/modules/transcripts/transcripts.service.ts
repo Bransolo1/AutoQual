@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { QueueService } from "../../queue/queue.service";
-import { CreateTranscriptInput, RedactTranscriptInput } from "./transcripts.dto";
+import { CreateTranscriptInput, DetectPiiInput, PiiEntity, RedactTranscriptInput } from "./transcripts.dto";
 
 @Injectable()
 export class TranscriptsService {
@@ -23,8 +23,10 @@ export class TranscriptsService {
     const transcript = await this.prisma.transcript.create({
       data: {
         sessionId: input.sessionId,
-        content: input.content
-      }
+        content: input.content,
+        wordTimestamps: input.wordTimestamps ?? undefined,
+        diarization: input.diarization ?? undefined,
+      },
     });
     await this.queueService.addTranscriptRedaction(transcript.id);
     const normalized = input.content.toLowerCase();
@@ -98,5 +100,42 @@ export class TranscriptsService {
         piiMetadata: input.piiMetadata ? (input.piiMetadata as Prisma.InputJsonValue) : undefined,
       },
     });
+  }
+
+  async detectPii(transcriptId: string, input: DetectPiiInput) {
+    const transcript = await this.prisma.transcript.findUniqueOrThrow({
+      where: { id: transcriptId },
+      select: { content: true },
+    });
+    const locale = input.locale ?? "en";
+    const entities = this.findPiiEntities(transcript.content);
+    const counts = entities.reduce<Record<string, number>>((acc, entity) => {
+      acc[entity.type] = (acc[entity.type] ?? 0) + 1;
+      return acc;
+    }, {});
+    return { transcriptId, locale, entities, counts };
+  }
+
+  private findPiiEntities(text: string): PiiEntity[] {
+    const entities: PiiEntity[] = [];
+    const patterns: Array<{ type: PiiEntity["type"]; regex: RegExp }> = [
+      { type: "email", regex: /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi },
+      { type: "phone", regex: /(\+?\d{1,2}\s?)?(\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}/g },
+      { type: "ssn", regex: /\b\d{3}-\d{2}-\d{4}\b/g },
+      { type: "credit_card", regex: /\b(?:\d[ -]*?){13,16}\b/g },
+    ];
+
+    for (const { type, regex } of patterns) {
+      let match: RegExpExecArray | null;
+      while ((match = regex.exec(text)) !== null) {
+        entities.push({
+          type,
+          start: match.index,
+          end: match.index + match[0].length,
+          value: match[0],
+        });
+      }
+    }
+    return entities.sort((a, b) => a.start - b.start);
   }
 }

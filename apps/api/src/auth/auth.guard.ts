@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { Request } from "express";
+import { createRemoteJWKSet, importSPKI, jwtVerify, type KeyLike } from "jose";
 import { IS_PUBLIC_KEY } from "./public.decorator";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -22,6 +23,9 @@ export type JwtPayload = {
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(private reflector: Reflector, private prisma: PrismaService) {}
+  private jwks?: ReturnType<typeof createRemoteJWKSet>;
+  private publicKey?: KeyLike;
+  private secretKey?: Uint8Array;
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
@@ -33,27 +37,12 @@ export class AuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request>();
     const authHeader = request.headers.authorization;
     const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-    const xUserId = request.headers["x-user-id"] as string | undefined;
-    const xWorkspaceId = request.headers["x-workspace-id"] as string | undefined;
-    const xRole = request.headers["x-role"] as string | undefined;
-
-    if (xUserId && xWorkspaceId) {
-      (request as Request & { user: JwtPayload }).user = {
-        sub: xUserId,
-        workspaceId: xWorkspaceId,
-        role: xRole ?? "researcher",
-      };
-      return true;
-    }
-
     if (!bearer) {
       throw new UnauthorizedException("Missing or invalid authorization");
     }
 
     try {
-      const payload = this.decodeJwt(bearer) as JwtPayload;
-      this.assertIssuer(payload);
-      this.assertAudience(payload);
+      const payload = await this.verifyToken(bearer);
       await this.assertJti(payload);
       if (!payload.sub || !payload.workspaceId) {
         throw new UnauthorizedException("Invalid token payload");
@@ -68,37 +57,48 @@ export class AuthGuard implements CanActivate {
     }
   }
 
-  private decodeJwt(token: string): unknown {
-    const parts = token.split(".");
-    if (parts.length !== 3) throw new Error("Invalid JWT");
-    const payload = Buffer.from(parts[1], "base64url").toString("utf8");
-    return JSON.parse(payload) as unknown;
+  private async verifyToken(token: string): Promise<JwtPayload> {
+    const key = await this.getVerificationKey();
+    const issuer = process.env.JWT_ISSUER || undefined;
+    const audience = process.env.JWT_AUDIENCE || undefined;
+    const algorithm = process.env.JWT_ALGORITHM || undefined;
+
+    const { payload } = await jwtVerify(token, key, {
+      issuer,
+      audience,
+      algorithms: algorithm ? [algorithm] : undefined,
+    });
+
+    return payload as JwtPayload;
   }
 
-  private assertIssuer(payload: JwtPayload) {
-    const expectedIssuer = process.env.JWT_ISSUER;
-    if (!expectedIssuer) return;
-    if (!payload.iss || payload.iss !== expectedIssuer) {
-      throw new UnauthorizedException("Invalid token issuer");
-    }
-  }
-
-  private assertAudience(payload: JwtPayload) {
-    const expectedAudience = process.env.JWT_AUDIENCE;
-    if (!expectedAudience) return;
-    const aud = payload.aud;
-    if (!aud) {
-      throw new UnauthorizedException("Invalid token audience");
-    }
-    if (Array.isArray(aud)) {
-      if (!aud.includes(expectedAudience)) {
-        throw new UnauthorizedException("Invalid token audience");
+  private async getVerificationKey() {
+    const jwksUrl = process.env.JWT_JWKS_URL;
+    if (jwksUrl) {
+      if (!this.jwks) {
+        this.jwks = createRemoteJWKSet(new URL(jwksUrl));
       }
-      return;
+      return this.jwks;
     }
-    if (aud !== expectedAudience) {
-      throw new UnauthorizedException("Invalid token audience");
+
+    const publicKey = process.env.JWT_PUBLIC_KEY;
+    if (publicKey) {
+      if (!this.publicKey) {
+        const algorithm = process.env.JWT_ALGORITHM ?? "RS256";
+        this.publicKey = await importSPKI(publicKey, algorithm);
+      }
+      return this.publicKey;
     }
+
+    const secret = process.env.JWT_SECRET;
+    if (secret) {
+      if (!this.secretKey) {
+        this.secretKey = new TextEncoder().encode(secret);
+      }
+      return this.secretKey;
+    }
+
+    throw new UnauthorizedException("Token verification not configured");
   }
 
   private async assertJti(payload: JwtPayload) {

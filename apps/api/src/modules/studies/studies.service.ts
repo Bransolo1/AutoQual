@@ -47,35 +47,47 @@ export class StudiesService {
   async buildFromBrief(studyId: string, brief: string) {
     const trimmed = brief.trim();
     const topic = trimmed.split("\n")[0]?.slice(0, 120) || "study topic";
+    const questions = [
+      {
+        id: "q1",
+        text: "Tell me about your most recent experience with this topic.",
+        probe: "What stood out the most and why?",
+      },
+      {
+        id: "q2",
+        text: "What problems or frustrations do you face today?",
+        probe: "Can you share a specific moment?",
+      },
+      {
+        id: "q3",
+        text: "How do you currently solve this, and what alternatives have you tried?",
+        probe: "What worked and what did not?",
+      },
+      {
+        id: "q4",
+        text: "What would an ideal solution look like?",
+        probe: "Which features matter most?",
+      },
+      {
+        id: "q5",
+        text: "How likely are you to recommend a solution that fits those needs?",
+        probe: "What would increase your confidence?",
+      },
+    ];
     const interviewGuide = {
+      version: 1,
       title: `Interview guide for ${topic}`,
-      questions: [
+      sections: [
         {
-          id: "q1",
-          text: "Tell me about your most recent experience with this topic.",
-          probe: "What stood out the most and why?"
+          id: "section-1",
+          title: "Core experience",
+          questions,
         },
-        {
-          id: "q2",
-          text: "What problems or frustrations do you face today?",
-          probe: "Can you share a specific moment?"
-        },
-        {
-          id: "q3",
-          text: "How do you currently solve this, and what alternatives have you tried?",
-          probe: "What worked and what did not?"
-        },
-        {
-          id: "q4",
-          text: "What would an ideal solution look like?",
-          probe: "Which features matter most?"
-        },
-        {
-          id: "q5",
-          text: "How likely are you to recommend a solution that fits those needs?",
-          probe: "What would increase your confidence?"
-        }
-      ]
+      ],
+      questions,
+      stopConditions: {
+        maxTurns: 10,
+      },
     };
     const screeningLogic = {
       requiredFields: ["market", "role"],
@@ -96,6 +108,31 @@ export class StudiesService {
         interviewGuide,
         screeningLogic
       }
+    });
+  }
+
+  async updateInterviewGuide(studyId: string, guide: Record<string, unknown>) {
+    const study = await this.prisma.study.findUnique({
+      where: { id: studyId },
+      select: { interviewGuide: true },
+    });
+    const existing = (study?.interviewGuide as Record<string, unknown> | null) ?? null;
+    const existingVersion =
+      typeof existing?.version === "number" ? (existing.version as number) : 0;
+    const nextVersion = existingVersion + 1;
+    const history = Array.isArray(existing?.history) ? (existing?.history as unknown[]) : [];
+
+    const updatedGuide = {
+      ...guide,
+      version: nextVersion,
+      history: existing ? [...history, existing] : history,
+    };
+
+    return this.prisma.study.update({
+      where: { id: studyId },
+      data: {
+        interviewGuide: updatedGuide as Prisma.InputJsonValue,
+      },
     });
   }
 

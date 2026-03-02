@@ -4,6 +4,8 @@ export type CreateParticipantInput = {
   locale?: string;
   source?: string;
   segment?: string;
+  deviceFingerprint?: string;
+  screeningAnswers?: Record<string, string>;
 };
 
 export type RecruitParticipantsInput = {
@@ -12,6 +14,13 @@ export type RecruitParticipantsInput = {
   locale?: string;
   source?: string;
   segment?: string;
+  deviceFingerprint?: string;
+  screeningAnswers?: Record<string, string>;
+};
+
+export type ScreenParticipantInput = {
+  studyId: string;
+  answers: Record<string, string>;
 };
 
 export type VerifyParticipantInput = {

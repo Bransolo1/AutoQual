@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post, Query, UseInterceptors, UploadedFil
 import { FileInterceptor } from "@nestjs/platform-express";
 import { MediaService } from "./media.service";
 import { CreateClipInput, CreateMediaArtifactInput } from "./media.dto";
-import { Public } from "../../auth/public.decorator";
+import { Roles } from "../../auth/roles.decorator";
 
 @Controller("media")
 export class MediaController {
@@ -35,8 +35,8 @@ export class MediaController {
     return this.mediaService.createArtifact({ sessionId, type, storageKey });
   }
 
-  @Public()
   @Post("artifacts/:id/process")
+  @Roles("admin", "system")
   processArtifact(@Param("id") id: string) {
     return this.mediaService.processArtifact(id);
   }

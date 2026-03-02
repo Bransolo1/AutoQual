@@ -15,4 +15,9 @@ export class SearchController {
   queryInsights(@Body() input: SearchInsightsInput) {
     return this.searchService.searchInsights(input);
   }
+
+  @Post("insights/query-evidence")
+  queryInsightsWithEvidence(@Body() input: SearchInsightsInput) {
+    return this.searchService.searchInsightsWithEvidence(input);
+  }
 }

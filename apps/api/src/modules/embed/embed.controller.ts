@@ -1,7 +1,14 @@
 import { Body, Controller, Get, Param, Post, Res } from "@nestjs/common";
 import { Response } from "express";
 import { Public } from "../../auth/public.decorator";
-import { CreateEmbedTokenInput, EmbedCompletionInput } from "./embed.dto";
+import {
+  CreateEmbedTokenInput,
+  EmbedConsentInput,
+  EmbedCompletionInput,
+  EmbedSessionInput,
+  EmbedTranscriptInput,
+  EmbedTurnInput,
+} from "./embed.dto";
 import { EmbedService } from "./embed.service";
 
 @Controller("embed")
@@ -58,5 +65,33 @@ export class EmbedController {
   async complete(@Param("token") token: string, @Body() input: EmbedCompletionInput) {
     const payload = this.embedService.verifyToken(token);
     return this.embedService.notifyCompletion(payload.studyId, input);
+  }
+
+  @Public()
+  @Post(":token/session")
+  async createSession(@Param("token") token: string, @Body() input: EmbedSessionInput) {
+    const payload = this.embedService.verifyToken(token);
+    return this.embedService.createSession(payload.studyId, input);
+  }
+
+  @Public()
+  @Post(":token/turn")
+  async recordTurn(@Param("token") token: string, @Body() input: EmbedTurnInput) {
+    this.embedService.verifyToken(token);
+    return this.embedService.recordTurn(input);
+  }
+
+  @Public()
+  @Post(":token/transcript")
+  async createTranscript(@Param("token") token: string, @Body() input: EmbedTranscriptInput) {
+    this.embedService.verifyToken(token);
+    return this.embedService.createTranscript(input);
+  }
+
+  @Public()
+  @Post(":token/consent")
+  async updateConsent(@Param("token") token: string, @Body() input: EmbedConsentInput) {
+    this.embedService.verifyToken(token);
+    return this.embedService.updateConsent(input);
   }
 }

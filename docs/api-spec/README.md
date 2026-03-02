@@ -11,6 +11,9 @@
 - `POST /trust-center/upload-url` (body: storageKey, contentType?)
 - `GET /studies`, `POST /studies` (body: language?, mode?, allowMultipleEntries?, allowIncomplete?, screeningLogic?, interviewGuide?, syntheticEnabled?, quotaTargets?)
 - `POST /studies/:id/build` (body: brief)
+  - response interviewGuide includes `version`, `sections`, and `stopConditions`
+- `POST /studies/:id/guide` (body: guide)
+  - increments `interviewGuide.version` and appends prior guide to `history`
 - `POST /studies/:id/synthetic-answer` (body: prompt)
 - `POST /studies/:id/localization` (body: checklist)
 - `POST /studies/:id/recruitment` (body: checklist)
@@ -22,22 +25,26 @@
 - `GET /studies/:id/segment-summary`
 - `GET /studies/:id/quota-status`
 - `GET /participants` (query: studyId?, workspaceId?, status?)
-- `POST /participants`, `POST /participants/recruit` (body: studyId, count?, locale?, source?, segment?)
+- `POST /participants`, `POST /participants/recruit` (body: studyId, count?, locale?, source?, segment?, deviceFingerprint?, screeningAnswers?)
+- `POST /participants/screen` (body: studyId, answers)
 - `PATCH /participants/:id/verify` (body: status, fraudScore?)
 - `POST /participants/verify-bulk` (body: ids[], status, fraudScore?)
 - `GET /sessions`, `POST /sessions` (body: screeningAnswers?, consented?)
 - `GET /sessions/:id`
 - `PATCH /sessions/:id/status`
 - `POST /sessions/:id/consent`
-- `GET /transcripts`, `POST /transcripts`
+- `GET /transcripts`, `POST /transcripts` (body: sessionId, content, wordTimestamps?, diarization?)
 - `GET /transcripts/:id`
 - `PATCH /transcripts/:id/redact` (body: redactedContent, piiDetected, piiMetadata?)
+- `POST /transcripts/:id/detect-pii` (body: locale?)
 - `GET /themes`, `POST /themes`
+- `POST /themes/generate` (body: studyId)
 - `GET /insights`, `POST /insights`
 - `GET /insights/:id`
 - `GET /insights/templates`
 - `POST /insights/:id/versions`
 - `POST /insights/generate`
+ - `POST /insights/:id/evidence` (body: supportingTranscriptSpans?, supportingVideoClips?)
   - creating or versioning an approved insight requires evidence (clips or transcript spans)
 - `GET /stories` (query: studyId), `POST /stories`
 - `GET /stories/:id`
@@ -56,6 +63,7 @@
 - Pipeline: session completion enqueues transcription → redaction → themes + insights → search indexing
 - `POST /embed/token`, `GET /embed/:token`
 - `GET /media/artifacts`, `POST /media/artifacts`
+  - media artifacts include `status` (uploaded, processing, ready, failed)
 - `GET /media/artifacts/:id/signed-url`
 - `GET /media/clips/:id/thumbnail`
 - `POST /media/upload-url` (body: storageKey, contentType)
@@ -69,6 +77,7 @@
 - `GET /media/clips`, `POST /media/clips`
 - `POST /search/index/insight`
 - `POST /search/insights/query` (body: query, studyId?, limit?)
+- `POST /search/insights/query-evidence` (body: query, studyId?, limit?)
 - `GET /analysis/study/:studyId/summary`
 - `GET /analysis/study/:studyId/templates`
 - `GET /analysis/study/:studyId/evidence-coverage`
@@ -108,6 +117,10 @@
 - `POST /embed/:token/complete`
   - emits `embed.completed` notification and audit event when possible
   - iframe posts `sensehub.embed.completed` to parent window
+- `POST /embed/:token/session` (body: email, locale?, source?, segment?, consented?)
+- `POST /embed/:token/consent` (body: sessionId, consented)
+- `POST /embed/:token/turn` (body: sessionId, speaker, content)
+- `POST /embed/:token/transcript` (body: sessionId, content)
 
 ## Project Management
 - `GET /projects` (query: workspaceId, status?, ownerUserId?, q?), `POST /projects`
@@ -137,7 +150,8 @@
 - `GET /audit/export-url` (query: storageKey)
 - `POST /audit/retention-run` (query: workspaceId, retentionDays?)
 - `GET /auth/sso/config`
-- `POST /auth/sso/callback` (query: code)
+- `GET /auth/sso/login` (query: workspaceId)
+- `POST /auth/sso/callback` (query: code, workspaceId)
 - `GET /secrets/health`
 - `POST /auth/tokens/revoke` (body: workspaceId, actorUserId, userId?, jti, expiresAt, reason?)
 - `GET /auth/tokens/revoked` (query: workspaceId, userId?, q?, status?, limit?, cursor?)
