@@ -53,6 +53,9 @@ export default function SettingsPage() {
   const [revokeStatus, setRevokeStatus] = useState<string | null>(null);
   const [ssoConfig, setSsoConfig] = useState<{ enabled: boolean; issuerUrl: string; clientId: string; redirectUri: string } | null>(null);
   const [secretsHealth, setSecretsHealth] = useState<{ provider: string; status: string; message: string } | null>(null);
+  const [auditRetentionDays, setAuditRetentionDays] = useState("365");
+  const [auditRetentionEnabled, setAuditRetentionEnabled] = useState(false);
+  const [retentionConfigStatus, setRetentionConfigStatus] = useState<string | null>(null);
 
   const loadSettings = async () => {
     const res = await fetch(`${API_BASE}/workspaces/demo-workspace-id`, { headers: HEADERS });
@@ -84,6 +87,11 @@ export default function SettingsPage() {
     fetch(`${API_BASE}/secrets/health`, { headers: HEADERS })
       .then((r) => (r.ok ? r.json() : null))
       .then(setSecretsHealth);
+  }, []);
+
+  useEffect(() => {
+    setAuditRetentionEnabled(false);
+    setAuditRetentionDays("365");
   }, []);
 
   const updateSettings = async () => {
@@ -531,6 +539,54 @@ export default function SettingsPage() {
             Revoke token
           </button>
           {revokeStatus && <span className="text-xs text-gray-500">{revokeStatus}</span>}
+        </div>
+      </section>
+
+      <section className="mt-8 max-w-xl rounded-2xl bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold">Audit retention schedule</h2>
+        <p className="mt-2 text-sm text-gray-600">
+          Configure retention runs for audit logs and enable automated cleanup.
+        </p>
+        <div className="mt-4 grid gap-3">
+          <label className="flex items-center gap-2 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              checked={auditRetentionEnabled}
+              onChange={(event) => setAuditRetentionEnabled(event.target.checked)}
+            />
+            Enable audit retention cleanup
+          </label>
+          <label className="text-sm text-gray-600">
+            Retention window (days)
+            <input
+              type="number"
+              min={30}
+              value={auditRetentionDays}
+              onChange={(event) => setAuditRetentionDays(event.target.value)}
+              className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={async () => {
+              setRetentionConfigStatus("Running retention...");
+              const params = new URLSearchParams({
+                workspaceId: "demo-workspace-id",
+                retentionDays: auditRetentionDays,
+              });
+              const res = await fetch(`${API_BASE}/audit/retention-run?${params.toString()}`, {
+                method: "POST",
+                headers: HEADERS,
+              });
+              setRetentionConfigStatus(res.ok ? "Retention executed." : "Retention failed.");
+            }}
+            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white"
+          >
+            Run retention now
+          </button>
+          {retentionConfigStatus && (
+            <span className="text-xs text-gray-500">{retentionConfigStatus}</span>
+          )}
         </div>
       </section>
 
