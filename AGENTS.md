@@ -93,3 +93,5 @@ const jwt = await new jose.SignJWT({ sub: 'system', workspaceId: 'demo-workspace
 - `npm --workspace apps/worker run test` — Worker tests (vitest).
 - Web lint (`npm --workspace apps/web run lint`) requires `.eslintrc.json` with `{"extends": "next/core-web-vitals"}`.
 - API/Worker lint require `eslint.config.mjs` files with `@typescript-eslint/parser`.
+- `next build` fails on a pre-existing type error in `app/client/reports/page.tsx` (setState type mismatch). The dev server (`next dev`) works fine since it skips full type-checking.
+- `apps/web/vitest.config.ts` needs a `resolve.alias` mapping `@` to the web app root for the `@/lib/api` import to resolve in tests.

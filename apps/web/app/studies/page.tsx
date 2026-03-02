@@ -4,6 +4,31 @@ import React, { useEffect, useMemo, useState } from "react";
 import { API_BASE, HEADERS } from "@/lib/api";
 const STORAGE_KEY = "autoqual.studyWizard.v1";
 
+type QuestionItem = {
+  id: string;
+  text: string;
+  probe: string;
+  llmInstruction: string;
+};
+
+const DEFAULT_SYSTEM_PROMPT = `You are an expert qualitative researcher conducting a moderated interview. Your role is to:
+- Ask one question at a time and listen carefully to the response
+- Probe for deeper understanding with follow-up questions
+- Stay neutral and non-leading — never suggest answers
+- Capture rich, detailed responses with specific examples
+- Know when to move on vs. when to dig deeper
+- Keep the conversation natural and conversational
+
+Adapt your language to match the participant's communication style. If they give short answers, probe gently. If they go off-topic, guide them back.`;
+
+const DEFAULT_QUESTIONS: QuestionItem[] = [
+  { id: "q1", text: "Tell me about your experience with [topic].", probe: "What stood out most?", llmInstruction: "Start broad. Let the participant set the context before probing for specifics." },
+  { id: "q2", text: "What problems or frustrations do you face?", probe: "Can you share a specific example?", llmInstruction: "Listen for emotional cues. When the participant expresses frustration, probe for the root cause." },
+  { id: "q3", text: "How do you currently solve this?", probe: "What works and what doesn't?", llmInstruction: "Map the current workflow. Ask about workarounds and unmet needs." },
+  { id: "q4", text: "What would an ideal solution look like?", probe: "Which features matter most?", llmInstruction: "Encourage specificity. Push past vague answers like 'easier' or 'faster'." },
+  { id: "q5", text: "How likely are you to try a new approach?", probe: "What would increase your confidence?", llmInstruction: "Gauge intent vs. aspiration. Probe for barriers to adoption." },
+];
+
 type Study = {
   id: string;
   name: string;
@@ -85,6 +110,8 @@ export default function StudiesWizardPage() {
   const [quotaStatus, setQuotaStatus] = useState<
     Array<{ segment: string; target: number; actual: number; remaining: number }>
   >([]);
+  const [systemPrompt, setSystemPrompt] = useState<string>(DEFAULT_SYSTEM_PROMPT);
+  const [questions, setQuestions] = useState<QuestionItem[]>(DEFAULT_QUESTIONS);
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -170,12 +197,13 @@ export default function StudiesWizardPage() {
     setGuideStatus("Guide generated.");
   };
 
-  const saveGuide = async () => {
+  const saveGuide = async (guideJsonOverride?: string) => {
     if (!wizard.studyId) {
       setGuideStatus("Select a study first.");
       return;
     }
-    const guide = safeJsonParse(wizard.guideJson);
+    const raw = guideJsonOverride ?? wizard.guideJson;
+    const guide = safeJsonParse(raw);
     if (!guide) {
       setGuideStatus("Guide JSON is invalid.");
       return;
@@ -430,7 +458,7 @@ export default function StudiesWizardPage() {
         )}
 
         {step === 2 && (
-          <div className="mt-4 grid gap-3">
+          <div className="mt-4 grid gap-4">
             <label className="text-sm text-gray-600">
               Brief
               <textarea
@@ -451,23 +479,121 @@ export default function StudiesWizardPage() {
               </button>
               <button
                 type="button"
-                onClick={saveGuide}
+                onClick={() => {
+                  const compiled = {
+                    systemPrompt,
+                    questions: questions.map((q) => ({
+                      id: q.id,
+                      text: q.text,
+                      probe: q.probe,
+                      llmInstruction: q.llmInstruction,
+                    })),
+                  };
+                  const json = JSON.stringify(compiled, null, 2);
+                  setWizard((prev) => ({ ...prev, guideJson: json }));
+                  saveGuide(json);
+                }}
                 className="rounded-full border border-gray-200 px-3 py-1 text-gray-600"
               >
                 Save new version
               </button>
               {guideStatus && <span className="text-xs text-gray-500">{guideStatus}</span>}
             </div>
-            <label className="text-sm text-gray-600">
-              Interview guide (JSON)
+
+            {/* System prompt */}
+            <div className="rounded-xl border border-gray-200 p-4">
+              <label className="text-sm font-medium text-gray-700">
+                System prompt
+                <span className="ml-1 text-xs font-normal text-gray-400">(instructs the AI moderator)</span>
+              </label>
+              <p className="mt-0.5 text-xs text-gray-400">
+                This is sent to the LLM at the start of every interview session.
+              </p>
               <textarea
-                className="mt-1 w-full rounded-lg border border-gray-200 p-2 font-mono text-xs"
-                rows={10}
-                value={wizard.guideJson}
-                onChange={(event) => setWizard((prev) => ({ ...prev, guideJson: event.target.value }))}
-                placeholder="Guide JSON will appear here."
+                className="mt-2 w-full rounded-lg border border-gray-200 p-3 text-sm leading-relaxed"
+                rows={8}
+                value={systemPrompt}
+                onChange={(event) => setSystemPrompt(event.target.value)}
               />
-            </label>
+            </div>
+
+            {/* Discussion guide */}
+            <div>
+              <h3 className="text-sm font-medium text-gray-700">Discussion guide</h3>
+              <div className="mt-2 grid gap-3">
+                {questions.map((q, idx) => (
+                  <div key={q.id} className="rounded-xl border border-gray-200 p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">
+                        {idx + 1}
+                      </span>
+                      {questions.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setQuestions((prev) => prev.filter((_, i) => i !== idx))}
+                          className="text-xs text-red-400 hover:text-red-600"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    <div className="mt-3 grid gap-2">
+                      <label className="text-xs text-gray-500">
+                        Question
+                        <input
+                          className="mt-1 w-full rounded-lg border border-gray-200 p-2 text-sm"
+                          value={q.text}
+                          onChange={(event) =>
+                            setQuestions((prev) =>
+                              prev.map((item, i) => (i === idx ? { ...item, text: event.target.value } : item)),
+                            )
+                          }
+                        />
+                      </label>
+                      <label className="text-xs text-gray-500">
+                        Follow-up probe
+                        <input
+                          className="mt-1 w-full rounded-lg border border-gray-200 p-2 text-sm"
+                          value={q.probe}
+                          onChange={(event) =>
+                            setQuestions((prev) =>
+                              prev.map((item, i) => (i === idx ? { ...item, probe: event.target.value } : item)),
+                            )
+                          }
+                        />
+                      </label>
+                      <label className="text-xs text-gray-500">
+                        LLM instruction
+                        <textarea
+                          className="mt-1 w-full rounded-lg border border-gray-100 bg-gray-50 p-2 text-sm"
+                          rows={2}
+                          value={q.llmInstruction}
+                          onChange={(event) =>
+                            setQuestions((prev) =>
+                              prev.map((item, i) =>
+                                i === idx ? { ...item, llmInstruction: event.target.value } : item,
+                              ),
+                            )
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setQuestions((prev) => [
+                    ...prev,
+                    { id: `q${prev.length + 1}`, text: "", probe: "", llmInstruction: "" },
+                  ])
+                }
+                className="mt-3 rounded-full border border-dashed border-gray-300 px-4 py-1.5 text-xs text-gray-500 hover:border-brand-400 hover:text-brand-600"
+              >
+                + Add question
+              </button>
+            </div>
           </div>
         )}
 

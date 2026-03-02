@@ -22,3 +22,4 @@ prisma/dev.db
 uploads/
 apps/e2e/playwright-report/
 apps/e2e/test-results/
+apps/web/tsconfig.tsbuildinfo
