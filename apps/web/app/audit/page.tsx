@@ -25,6 +25,8 @@ export default function AuditLogPage() {
   const [actionFilter, setActionFilter] = useState("");
   const [actorFilter, setActorFilter] = useState("");
   const [requestIdFilter, setRequestIdFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [retentionStatus, setRetentionStatus] = useState<string | null>(null);
   const workspaceId = "demo-workspace-id";
@@ -43,6 +45,8 @@ export default function AuditLogPage() {
     const actionNeedle = actionFilter.trim().toLowerCase();
     const actorNeedle = actorFilter.trim().toLowerCase();
     const requestNeedle = requestIdFilter.trim().toLowerCase();
+    const fromMs = dateFrom ? new Date(dateFrom).getTime() : null;
+    const toMs = dateTo ? new Date(dateTo).getTime() + 86400000 - 1 : null;
     return events.filter((event) => {
       const actionMatch = actionNeedle
         ? event.action.toLowerCase().includes(actionNeedle)
@@ -53,9 +57,12 @@ export default function AuditLogPage() {
       const requestMatch = requestNeedle
         ? (event.requestId ?? "").toLowerCase().includes(requestNeedle)
         : true;
-      return actionMatch && actorMatch && requestMatch;
+      const createdMs = new Date(event.createdAt).getTime();
+      const fromMatch = fromMs !== null ? createdMs >= fromMs : true;
+      const toMatch = toMs !== null ? createdMs <= toMs : true;
+      return actionMatch && actorMatch && requestMatch && fromMatch && toMatch;
     });
-  }, [events, actionFilter, actorFilter, requestIdFilter]);
+  }, [events, actionFilter, actorFilter, requestIdFilter, dateFrom, dateTo]);
 
   const securityEvents = useMemo(() => {
     const match = ["token.", "audit.export", "retention.", "auth.", "sso."];
@@ -101,6 +108,18 @@ export default function AuditLogPage() {
           value={requestIdFilter}
           onChange={(event) => setRequestIdFilter(event.target.value)}
           placeholder="Request ID"
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
+        />
+        <input
+          type="date"
+          value={dateFrom}
+          onChange={(event) => setDateFrom(event.target.value)}
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
+        />
+        <input
+          type="date"
+          value={dateTo}
+          onChange={(event) => setDateTo(event.target.value)}
           className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
         />
         <select
