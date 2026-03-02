@@ -8,7 +8,8 @@ const connection = {
 };
 
 const API_BASE = process.env.API_URL || "http://localhost:4000";
-const pipelineQueue = new Queue("pipeline", { connection });
+const shouldInitQueues = process.env.NODE_ENV !== "test";
+const pipelineQueue = shouldInitQueues ? new Queue("pipeline", { connection }) : null;
 const API_HEADERS = {
   "Content-Type": "application/json",
   "x-workspace-id": "demo-workspace-id",
@@ -76,7 +77,14 @@ export async function handlePipelineJob(
       const studyRes = await fetch(`${API_BASE}/studies/${studyId}`, { headers: API_HEADERS });
       const study = studyRes.ok ? ((await studyRes.json()) as { workspaceId?: string }) : null;
       if (study?.workspaceId) {
-        const enqueue = options?.enqueue ?? ((name, data) => pipelineQueue.add(name, data));
+        const enqueue =
+          options?.enqueue ??
+          ((name, data) => {
+            if (!pipelineQueue) {
+              return Promise.reject(new Error("pipelineQueue not initialized"));
+            }
+            return pipelineQueue.add(name, data);
+          });
         await enqueue("dashboard.refresh", { workspaceId: study.workspaceId, studyId });
       }
     }
@@ -116,7 +124,14 @@ export async function handlePipelineJob(
       });
       const session = sessionRes.ok ? ((await sessionRes.json()) as { studyId?: string }) : null;
       if (session?.studyId) {
-        const enqueue = options?.enqueue ?? ((name, data) => pipelineQueue.add(name, data));
+        const enqueue =
+          options?.enqueue ??
+          ((name, data) => {
+            if (!pipelineQueue) {
+              return Promise.reject(new Error("pipelineQueue not initialized"));
+            }
+            return pipelineQueue.add(name, data);
+          });
         await enqueue("generate-insight", {
           studyId: session.studyId,
           transcriptText: redaction.redacted,
@@ -222,12 +237,17 @@ export async function handlePipelineJob(
   return { status: "ignored", payload: job.data };
 }
 
-new Worker(
-  "pipeline",
-  async (job) => handlePipelineJob({ name: job.name, data: job.data as Record<string, unknown> }),
-  { connection },
-);
+if (shouldInitQueues) {
+  new Worker(
+    "pipeline",
+    async (job) => handlePipelineJob({ name: job.name, data: job.data as Record<string, unknown> }),
+    { connection },
+  );
+}
 
 export async function enqueueInsightJob(payload: Record<string, unknown>) {
+  if (!pipelineQueue) {
+    throw new Error("pipelineQueue not initialized");
+  }
   return pipelineQueue.add("generate-insight", payload);
 }

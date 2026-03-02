@@ -218,15 +218,21 @@ export class ExportsService {
       .map((t) => (t.redactedContent || t.content || "").trim())
       .filter(Boolean)
       .map((text) => (text.length > 160 ? `${text.slice(0, 157)}...` : text));
-    const segmentCounts = study.participants.reduce<Record<string, number>>((acc, participant) => {
+    const segmentCounts = study.participants.reduce<Record<string, number>>(
+      (acc: Record<string, number>, participant: { segment?: string | null }) => {
       const key = participant.segment || "unassigned";
       acc[key] = (acc[key] ?? 0) + 1;
       return acc;
-    }, {});
-    const themeCounts = study.themes.reduce<Record<string, number>>((acc, theme) => {
+      },
+      {},
+    );
+    const themeCounts = study.themes.reduce<Record<string, number>>(
+      (acc: Record<string, number>, theme: { label: string }) => {
       acc[theme.label] = (acc[theme.label] ?? 0) + 1;
       return acc;
-    }, {});
+      },
+      {},
+    );
     const lines: string[] = [
       `# ${study.name}`,
       "",
@@ -253,7 +259,7 @@ export class ExportsService {
       "## Insights",
       "",
     ];
-    study.insights.forEach((i) => {
+    study.insights.forEach((i: { statement: string; confidenceScore: number; businessImplication: string }) => {
       lines.push(`- **${i.statement}**`);
       lines.push(`  - Confidence: ${i.confidenceScore}`);
       lines.push(`  - Implication: ${i.businessImplication}`);
@@ -281,15 +287,21 @@ export class ExportsService {
       .map((t) => (t.redactedContent || t.content || "").trim())
       .filter(Boolean)
       .map((text) => (text.length > 160 ? `${text.slice(0, 157)}...` : text));
-    const segmentCounts = study.participants.reduce<Record<string, number>>((acc, participant) => {
+    const segmentCounts = study.participants.reduce<Record<string, number>>(
+      (acc: Record<string, number>, participant: { segment?: string | null }) => {
       const key = participant.segment || "unassigned";
       acc[key] = (acc[key] ?? 0) + 1;
       return acc;
-    }, {});
-    const themeCounts = study.themes.reduce<Record<string, number>>((acc, theme) => {
+      },
+      {},
+    );
+    const themeCounts = study.themes.reduce<Record<string, number>>(
+      (acc: Record<string, number>, theme: { label: string }) => {
       acc[theme.label] = (acc[theme.label] ?? 0) + 1;
       return acc;
-    }, {});
+      },
+      {},
+    );
     const clips = await this.prisma.clip.findMany({
       where: { mediaArtifact: { session: { studyId } } },
       select: { id: true, mediaArtifactId: true, startMs: true, endMs: true },

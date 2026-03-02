@@ -17,6 +17,7 @@ type Study = {
   syntheticEnabled?: boolean;
   screeningLogic?: Record<string, unknown>;
   interviewGuide?: Record<string, unknown>;
+  quotaTargets?: Record<string, number>;
   localizationChecklist?: Record<string, boolean>;
   recruitmentChecklist?: Record<string, boolean>;
   activationChecklist?: Record<string, boolean>;
@@ -32,6 +33,23 @@ type Participant = {
   verificationStatus?: string;
   fraudScore?: number | null;
   verifiedAt?: string | null;
+};
+
+type EvidenceCoverage = {
+  studyId: string;
+  gapCount: number;
+  gaps: { insightId: string; statement: string }[];
+  coverage: { insightId: string; clipCount: number; transcriptSpanCount: number }[];
+};
+
+type AnalysisSummary = {
+  studyId: string;
+  evidenceCoverage?: {
+    insightsWithEvidence: number;
+    totalInsights: number;
+    coverageRate: number;
+    clipsPerInsight: number;
+  };
 };
 
 export default function StudiesPage() {
@@ -97,6 +115,14 @@ export default function StudiesPage() {
     fraudChecksEnabled: false,
     incentivesApproved: false,
   });
+  const [quotaStudyId, setQuotaStudyId] = useState("");
+  const [quotaTargetsInput, setQuotaTargetsInput] = useState("{\n  \"core\": 10,\n  \"edge\": 5\n}");
+  const [quotaStatus, setQuotaStatus] = useState<{ segment: string; target: number; actual: number }[]>([]);
+  const [quotaStatusMessage, setQuotaStatusMessage] = useState("");
+  const [analysisStudyId, setAnalysisStudyId] = useState("");
+  const [analysisSummary, setAnalysisSummary] = useState<AnalysisSummary | null>(null);
+  const [evidenceCoverage, setEvidenceCoverage] = useState<EvidenceCoverage | null>(null);
+  const [analysisStatus, setAnalysisStatus] = useState("");
   const [activationStudyId, setActivationStudyId] = useState("");
   const [activationChecklist, setActivationChecklist] = useState<Record<string, boolean>>({
     executiveBriefReady: false,
@@ -144,6 +170,26 @@ export default function StudiesPage() {
     setParticipants(payload ?? []);
   };
 
+  const loadQuotaStatus = async (studyId: string) => {
+    if (!studyId) return;
+    const res = await fetch(`${API_BASE}/studies/${studyId}/quota-status`, { headers: HEADERS });
+    if (!res.ok) return;
+    const payload = await res.json();
+    setQuotaStatus(payload?.status ?? []);
+  };
+
+  const loadAnalysis = async (studyId: string) => {
+    if (!studyId) return;
+    setAnalysisStatus("Loading analysis...");
+    const [summaryRes, coverageRes] = await Promise.all([
+      fetch(`${API_BASE}/analysis/study/${studyId}/summary`, { headers: HEADERS }),
+      fetch(`${API_BASE}/analysis/study/${studyId}/evidence-coverage`, { headers: HEADERS }),
+    ]);
+    setAnalysisSummary(summaryRes.ok ? await summaryRes.json() : null);
+    setEvidenceCoverage(coverageRes.ok ? await coverageRes.json() : null);
+    setAnalysisStatus(summaryRes.ok && coverageRes.ok ? "" : "Failed to load analysis.");
+  };
+
   useEffect(() => {
     if (!recruitStudyId) {
       setParticipants([]);
@@ -151,6 +197,27 @@ export default function StudiesPage() {
     }
     loadParticipants(recruitStudyId);
   }, [recruitStudyId]);
+
+  useEffect(() => {
+    if (!quotaStudyId) {
+      setQuotaStatus([]);
+      return;
+    }
+    const current = studies.find((study) => study.id === quotaStudyId);
+    if (current?.quotaTargets) {
+      setQuotaTargetsInput(JSON.stringify(current.quotaTargets, null, 2));
+    }
+    void loadQuotaStatus(quotaStudyId);
+  }, [quotaStudyId, studies]);
+
+  useEffect(() => {
+    if (!analysisStudyId) {
+      setAnalysisSummary(null);
+      setEvidenceCoverage(null);
+      return;
+    }
+    void loadAnalysis(analysisStudyId);
+  }, [analysisStudyId]);
 
   useEffect(() => {
     if (!localizationStudyId) return;
@@ -340,6 +407,25 @@ export default function StudiesPage() {
     setStatusMessage(res.ok ? "Recruitment checklist saved." : "Failed to save recruitment checklist.");
     if (res.ok) {
       loadData();
+    }
+  };
+
+  const saveQuotaTargets = async () => {
+    if (!quotaStudyId) return;
+    try {
+      const parsed = JSON.parse(quotaTargetsInput) as Record<string, number>;
+      const res = await fetch(`${API_BASE}/studies/${quotaStudyId}/quotas`, {
+        method: "POST",
+        headers: { ...HEADERS, "Content-Type": "application/json" },
+        body: JSON.stringify({ quotaTargets: parsed }),
+      });
+      setQuotaStatusMessage(res.ok ? "Quota targets saved." : "Failed to save quota targets.");
+      if (res.ok) {
+        await loadQuotaStatus(quotaStudyId);
+        loadData();
+      }
+    } catch (error) {
+      setQuotaStatusMessage("Quota targets must be valid JSON.");
     }
   };
 
@@ -832,6 +918,56 @@ export default function StudiesPage() {
         >
           Save recruitment checklist
         </button>
+        <div className="mt-6 rounded-xl border border-slate-100 bg-slate-50 p-4">
+          <h3 className="text-sm font-semibold text-slate-800">Quota targets</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Set segment quotas in JSON and track progress against actuals.
+          </p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <label className="text-sm text-slate-600">
+              Study
+              <select
+                className="mt-1 w-full rounded-lg border border-slate-200 p-2"
+                value={quotaStudyId}
+                onChange={(event) => setQuotaStudyId(event.target.value)}
+              >
+                <option value="">Select study</option>
+                {studyOptions.map((id) => (
+                  <option key={id} value={id}>
+                    {id}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm text-slate-600">
+              Quota targets JSON
+              <textarea
+                className="mt-1 h-28 w-full rounded-lg border border-slate-200 p-2 text-xs"
+                value={quotaTargetsInput}
+                onChange={(event) => setQuotaTargetsInput(event.target.value)}
+              />
+            </label>
+          </div>
+          <button
+            className="mt-3 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700"
+            onClick={saveQuotaTargets}
+          >
+            Save quotas
+          </button>
+          {quotaStatusMessage && <p className="mt-2 text-xs text-slate-500">{quotaStatusMessage}</p>}
+          {quotaStatus.length > 0 && (
+            <div className="mt-3 grid gap-2 text-xs text-slate-600 md:grid-cols-2">
+              {quotaStatus.map((entry) => (
+                <div key={entry.segment} className="rounded-lg border border-slate-200 bg-white p-2">
+                  <div className="text-[11px] uppercase text-slate-400">{entry.segment}</div>
+                  <div className="mt-1 text-sm font-semibold">
+                    {entry.actual}/{entry.target}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -882,6 +1018,71 @@ export default function StudiesPage() {
         >
           Save activation checklist
         </button>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900">Analysis quality</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Track evidence coverage and insight traceability before delivery.
+        </p>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <label className="text-sm text-slate-600">
+            Study
+            <select
+              className="mt-1 w-full rounded-lg border border-slate-200 p-2"
+              value={analysisStudyId}
+              onChange={(event) => setAnalysisStudyId(event.target.value)}
+            >
+              <option value="">Select study</option>
+              {studyOptions.map((id) => (
+                <option key={id} value={id}>
+                  {id}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-700">
+            <div className="text-xs uppercase text-slate-400">Coverage</div>
+            <div className="mt-2 text-lg font-semibold">
+              {analysisSummary?.evidenceCoverage
+                ? `${Math.round((analysisSummary.evidenceCoverage.coverageRate ?? 0) * 100)}%`
+                : "—"}
+            </div>
+            <div className="mt-1 text-xs text-slate-500">
+              {analysisSummary?.evidenceCoverage
+                ? `${analysisSummary.evidenceCoverage.insightsWithEvidence}/${analysisSummary.evidenceCoverage.totalInsights} insights linked`
+                : "Select a study to view coverage"}
+            </div>
+          </div>
+        </div>
+        {analysisStatus && <p className="mt-3 text-xs text-slate-500">{analysisStatus}</p>}
+        {analysisSummary?.evidenceCoverage && (
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 p-3 text-sm text-slate-600">
+              <div className="text-xs uppercase text-slate-400">Insights with evidence</div>
+              <div className="mt-1 text-lg font-semibold">{analysisSummary.evidenceCoverage.insightsWithEvidence}</div>
+            </div>
+            <div className="rounded-lg border border-slate-200 p-3 text-sm text-slate-600">
+              <div className="text-xs uppercase text-slate-400">Total insights</div>
+              <div className="mt-1 text-lg font-semibold">{analysisSummary.evidenceCoverage.totalInsights}</div>
+            </div>
+            <div className="rounded-lg border border-slate-200 p-3 text-sm text-slate-600">
+              <div className="text-xs uppercase text-slate-400">Clips per insight</div>
+              <div className="mt-1 text-lg font-semibold">{analysisSummary.evidenceCoverage.clipsPerInsight}</div>
+            </div>
+          </div>
+        )}
+        {evidenceCoverage?.gapCount ? (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            <div className="text-xs uppercase text-amber-600">Evidence gaps</div>
+            <div className="mt-1 text-lg font-semibold">{evidenceCoverage.gapCount} insights missing evidence</div>
+            <ul className="mt-2 space-y-1 text-xs text-amber-700">
+              {evidenceCoverage.gaps.slice(0, 4).map((gap) => (
+                <li key={gap.insightId}>{gap.statement}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

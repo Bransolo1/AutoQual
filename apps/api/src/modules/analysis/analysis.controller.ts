@@ -9,4 +9,14 @@ export class AnalysisController {
   async summary(@Param("studyId") studyId: string) {
     return this.analysisService.summary(studyId);
   }
+
+  @Get("study/:studyId/templates")
+  async templates(@Param("studyId") studyId: string) {
+    return this.analysisService.templates(studyId);
+  }
+
+  @Get("study/:studyId/evidence-coverage")
+  async evidenceCoverage(@Param("studyId") studyId: string) {
+    return this.analysisService.evidenceCoverage(studyId);
+  }
 }

@@ -7,6 +7,7 @@ import { AuthGuard } from "./auth/auth.guard";
 import { WorkspaceGuard } from "./auth/workspace.guard";
 import { RequestContext } from "./common/request-context";
 import { HttpExceptionFilter } from "./common/http-exception.filter";
+import type { Request, Response, NextFunction } from "express";
 
 function bootstrap() {
   return NestFactory.create(AppModule, {
@@ -21,7 +22,7 @@ function bootstrap() {
       credentials: true,
     });
     app.use(helmet());
-    app.use((req, res, next) => {
+    app.use((req: Request, res: Response, next: NextFunction) => {
       const requestId = req.headers["x-request-id"]?.toString() ?? randomUUID();
       res.setHeader("x-request-id", requestId);
       RequestContext.run({ requestId }, () => next());

@@ -34,6 +34,7 @@ import { AlertsModule } from "./modules/alerts/alerts.module";
 import { SsoModule } from "./modules/sso/sso.module";
 import { SecretsModule } from "./modules/secrets/secrets.module";
 import { AuthTokensModule } from "./modules/auth-tokens/auth-tokens.module";
+import { PrismaModule } from "./prisma/prisma.module";
 import { PrismaService } from "./prisma/prisma.service";
 import { QueueModule } from "./queue/queue.module";
 import { QueueService } from "./queue/queue.service";
@@ -51,9 +52,14 @@ import { envValidationSchema } from "./config/env.validation";
       validationOptions: { abortEarly: false },
     }),
     ThrottlerModule.forRoot({
-      ttl: Number(process.env.THROTTLE_TTL ?? 60),
-      limit: Number(process.env.THROTTLE_LIMIT ?? 120),
+      throttlers: [
+        {
+          ttl: Number(process.env.THROTTLE_TTL ?? 60),
+          limit: Number(process.env.THROTTLE_LIMIT ?? 120),
+        },
+      ],
     }),
+    PrismaModule,
     QueueModule,
     HealthModule,
     ProjectsModule,
@@ -89,7 +95,6 @@ import { envValidationSchema } from "./config/env.validation";
     AuthTokensModule,
   ],
   providers: [
-    PrismaService,
     Reflector,
     AuthGuard,
     WorkspaceGuard,

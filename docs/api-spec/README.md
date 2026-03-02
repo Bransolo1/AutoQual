@@ -9,16 +9,18 @@
 - `PATCH /trust-center/artifacts/:id` (body: status?, notes?)
 - `GET /trust-center/artifacts/:id/signed-url`
 - `POST /trust-center/upload-url` (body: storageKey, contentType?)
-- `GET /studies`, `POST /studies` (body: language?, mode?, allowMultipleEntries?, allowIncomplete?, screeningLogic?, interviewGuide?, syntheticEnabled?)
+- `GET /studies`, `POST /studies` (body: language?, mode?, allowMultipleEntries?, allowIncomplete?, screeningLogic?, interviewGuide?, syntheticEnabled?, quotaTargets?)
 - `POST /studies/:id/build` (body: brief)
 - `POST /studies/:id/synthetic-answer` (body: prompt)
 - `POST /studies/:id/localization` (body: checklist)
 - `POST /studies/:id/recruitment` (body: checklist)
+- `POST /studies/:id/quotas` (body: quotaTargets)
 - `POST /studies/:id/activation` (body: checklist)
 - `POST /studies/:id/rollout` (body: rolloutPlan)
 - `POST /studies/:id/distribution` (body: distributionTracking)
 - `POST /studies/:id/delivery-health` (body: deliveryHealth)
 - `GET /studies/:id/segment-summary`
+- `GET /studies/:id/quota-status`
 - `GET /participants` (query: studyId?, workspaceId?, status?)
 - `POST /participants`, `POST /participants/recruit` (body: studyId, count?, locale?, source?, segment?)
 - `PATCH /participants/:id/verify` (body: status, fraudScore?)
@@ -66,6 +68,8 @@
 - `POST /search/index/insight`
 - `POST /search/insights/query` (body: query, studyId?, limit?)
 - `GET /analysis/study/:studyId/summary`
+- `GET /analysis/study/:studyId/templates`
+- `GET /analysis/study/:studyId/evidence-coverage`
 - `GET /ops/dashboard`
   - response includes `recruitmentVerification` (pending, verified, flagged, rejected)
   - response includes `stakeholderFeedback` (total, avgRating, sentiment, byDeliverableType, trendWeekly)
@@ -73,6 +77,8 @@
   - response includes `activationByDeliverableType` (type totals)
   - response includes `activationTrendWeekly` (week, deliverableType, totalViews, totalShares, totalDecisionsLogged)
 - `POST /ops/dashboard/refresh` (query: workspaceId, studyId?)
+- `POST /ops/alerts/refresh` (query: workspaceId)
+- `GET /ops/security-alerts` (query: workspaceId, limit?)
 - `POST /ops/overdue-reminders` (query: workspaceId)
   - response includes `overdueTaskDetails` (id, title, assigneeUserId, dueDate, projectId)
 - `GET /ops/overdue` (query: workspaceId, assigneeUserId?, q?)
@@ -118,6 +124,11 @@
 - `PATCH /notifications/:id/read`
 - `GET /audit` (query: workspaceId, entityType?, entityId?, limit?)
 - `GET /audit/export.csv` (query: workspaceId, entityType?, entityId?, limit?)
+- `GET /alerts` (query: workspaceId, type?, severity?, from?, to?, limit?)
+- `GET /alerts/export.csv` (query: workspaceId, type?, severity?, from?, to?)
+- `GET /alerts/views` (query: workspaceId)
+- `POST /alerts/views` (body: workspaceId, name, createdByUserId, filters)
+- `DELETE /alerts/views/:id`
 - `POST /audit/export` (query: workspaceId, actorUserId, entityType?, entityId?, limit?)
 - `GET /audit/export-url` (query: storageKey)
 - `POST /audit/retention-run` (query: workspaceId, retentionDays?)

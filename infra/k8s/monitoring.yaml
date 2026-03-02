@@ -1,0 +1,207 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sensehub-prometheus-config
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+    rule_files:
+      - /etc/prometheus/alerts.yml
+    scrape_configs:
+      - job_name: "sensehub-api"
+        static_configs:
+          - targets: ["sensehub-api:4000"]
+      - job_name: "sensehub-web"
+        static_configs:
+          - targets: ["sensehub-web:3000"]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sensehub-prometheus-alerts
+data:
+  alerts.yml: |
+    groups:
+      - name: sensehub-alerts
+        rules:
+          - alert: SensehubApiDown
+            expr: up{job="sensehub-api"} == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Sensehub API is down"
+              description: "No successful scrapes for sensehub-api."
+          - alert: SensehubWebDown
+            expr: up{job="sensehub-web"} == 0
+            for: 1m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Sensehub web is down"
+              description: "No successful scrapes for sensehub-web."
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sensehub-prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sensehub-prometheus
+  template:
+    metadata:
+      labels:
+        app: sensehub-prometheus
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.55.1
+          args: ["--config.file=/etc/prometheus/prometheus.yml"]
+          volumeMounts:
+            - name: prometheus-config
+              mountPath: /etc/prometheus/prometheus.yml
+              subPath: prometheus.yml
+            - name: prometheus-alerts
+              mountPath: /etc/prometheus/alerts.yml
+              subPath: alerts.yml
+          ports:
+            - containerPort: 9090
+      volumes:
+        - name: prometheus-config
+          configMap:
+            name: sensehub-prometheus-config
+        - name: prometheus-alerts
+          configMap:
+            name: sensehub-prometheus-alerts
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sensehub-prometheus
+spec:
+  selector:
+    app: sensehub-prometheus
+  ports:
+    - name: http
+      port: 9090
+      targetPort: 9090
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sensehub-grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sensehub-grafana
+  template:
+    metadata:
+      labels:
+        app: sensehub-grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:11.2.0
+          env:
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: admin
+          ports:
+            - containerPort: 3000
+          volumeMounts:
+            - name: grafana-datasources
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: grafana-dashboards
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: grafana-dashboard-files
+              mountPath: /var/lib/grafana/dashboards
+      volumes:
+        - name: grafana-datasources
+          configMap:
+            name: sensehub-grafana-datasources
+        - name: grafana-dashboards
+          configMap:
+            name: sensehub-grafana-dashboards
+        - name: grafana-dashboard-files
+          configMap:
+            name: sensehub-grafana-dashboard-files
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sensehub-grafana-datasources
+data:
+  datasource.yml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://sensehub-prometheus:9090
+        isDefault: true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sensehub-grafana-dashboards
+data:
+  dashboards.yml: |
+    apiVersion: 1
+    providers:
+      - name: sensehub
+        orgId: 1
+        folder: "Sensehub"
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sensehub-grafana-dashboard-files
+data:
+  sensehub-overview.json: |
+    {
+      "title": "Sensehub Overview",
+      "timezone": "browser",
+      "schemaVersion": 36,
+      "version": 1,
+      "refresh": "10s",
+      "panels": [
+        {
+          "type": "stat",
+          "title": "API Up",
+          "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+          "targets": [
+            { "expr": "up{job=\"sensehub-api\"}", "refId": "A" }
+          ],
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "type": "stat",
+          "title": "Web Up",
+          "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+          "targets": [
+            { "expr": "up{job=\"sensehub-web\"}", "refId": "A" }
+          ],
+          "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+        }
+      ]
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sensehub-grafana
+spec:
+  selector:
+    app: sensehub-grafana
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000

@@ -36,8 +36,9 @@ export class SessionsService {
     }
     let status = input.status;
     if (study.screeningLogic && input.screeningAnswers) {
-      const requiredFields = Array.isArray(study.screeningLogic["requiredFields"])
-        ? (study.screeningLogic["requiredFields"] as string[])
+      const screeningLogic = (study.screeningLogic ?? {}) as Record<string, unknown>;
+      const requiredFields = Array.isArray(screeningLogic["requiredFields"])
+        ? (screeningLogic["requiredFields"] as string[])
         : [];
       const missing = requiredFields.filter(
         (field) => !input.screeningAnswers?.[field]
@@ -45,8 +46,8 @@ export class SessionsService {
       if (missing.length > 0 && !study.allowIncomplete) {
         status = "screened_out";
       }
-      const screenOutRules = Array.isArray(study.screeningLogic["screenOutRules"])
-        ? (study.screeningLogic["screenOutRules"] as Array<Record<string, string>>)
+      const screenOutRules = Array.isArray(screeningLogic["screenOutRules"])
+        ? (screeningLogic["screenOutRules"] as Array<Record<string, string>>)
         : [];
       for (const rule of screenOutRules) {
         const field = rule.field;

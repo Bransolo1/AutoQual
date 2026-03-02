@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import { deterministicInsightAdapter } from "../../../../packages/ai-adapters/src/mock";
-import { adapters } from "../../../../packages/ai-adapters/src";
+import { deterministicInsightAdapter } from "../../../../../packages/ai-adapters/src/mock";
+import { adapters } from "../../../../../packages/ai-adapters/src";
 
 type GenerateInsightPayload = {
   studyId: string;

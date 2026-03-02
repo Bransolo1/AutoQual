@@ -1,0 +1,10 @@
+apiVersion: 1
+providers:
+  - name: sensehub
+    orgId: 1
+    folder: "Sensehub"
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import {
   AddReviewCommentInput,
@@ -11,6 +11,12 @@ import {
 export class ReviewsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private hasEvidence(insight: { supportingTranscriptSpans?: unknown; supportingVideoClips?: unknown }) {
+    const spans = Array.isArray(insight.supportingTranscriptSpans) ? insight.supportingTranscriptSpans : [];
+    const clips = Array.isArray(insight.supportingVideoClips) ? insight.supportingVideoClips : [];
+    return spans.length > 0 || clips.length > 0;
+  }
+
   async list(insightId: string) {
     return this.prisma.review.findMany({ where: { insightId }, include: { commentEntries: true } });
   }
@@ -20,6 +26,15 @@ export class ReviewsService {
   }
 
   async create(input: CreateReviewInput) {
+    if (input.status === "approved") {
+      const insight = await this.prisma.insight.findUniqueOrThrow({
+        where: { id: input.insightId },
+        select: { supportingTranscriptSpans: true, supportingVideoClips: true },
+      });
+      if (!this.hasEvidence(insight)) {
+        throw new BadRequestException("Approved reviews require evidence-backed insights.");
+      }
+    }
     return this.prisma.review.create({
       data: {
         insightId: input.insightId,
@@ -31,6 +46,15 @@ export class ReviewsService {
   }
 
   async updateStatus(reviewId: string, input: UpdateReviewStatusInput) {
+    if (input.status === "approved") {
+      const review = await this.prisma.review.findUniqueOrThrow({
+        where: { id: reviewId },
+        select: { insight: { select: { supportingTranscriptSpans: true, supportingVideoClips: true } } },
+      });
+      if (!review.insight || !this.hasEvidence(review.insight)) {
+        throw new BadRequestException("Approved reviews require evidence-backed insights.");
+      }
+    }
     const review = await this.prisma.review.update({
       where: { id: reviewId },
       data: {
@@ -63,12 +87,12 @@ export class ReviewsService {
     });
     const review = await this.prisma.review.findUnique({
       where: { id: reviewId },
-      select: { reviewerId: true, insightId: true, insight: { select: { workspaceId: true } } },
+      select: { reviewerId: true, insightId: true, insight: { select: { study: { select: { workspaceId: true } } } } },
     });
-    if (review?.insight?.workspaceId) {
+    if (review?.insight?.study?.workspaceId) {
       await this.prisma.auditEvent.create({
         data: {
-          workspaceId: review.insight.workspaceId,
+          workspaceId: review.insight.study.workspaceId,
           actorUserId: input.authorUserId,
           action: "review.comment.added",
           entityType: "review",

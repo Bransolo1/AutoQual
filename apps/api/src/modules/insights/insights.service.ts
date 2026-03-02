@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateInsightInput, CreateInsightVersionInput } from "./insights.dto";
 import { AiService } from "../ai/ai.service";
@@ -9,6 +9,13 @@ export class InsightsService {
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
   ) {}
+
+  private hasEvidence(input: { supportingTranscriptSpans: unknown[]; supportingVideoClips: unknown[] }) {
+    return (
+      (Array.isArray(input.supportingTranscriptSpans) && input.supportingTranscriptSpans.length > 0) ||
+      (Array.isArray(input.supportingVideoClips) && input.supportingVideoClips.length > 0)
+    );
+  }
 
   async list(studyId: string) {
     return this.prisma.insight.findMany({ where: { studyId }, include: { versions: true } });
@@ -22,6 +29,9 @@ export class InsightsService {
   }
 
   async create(input: CreateInsightInput) {
+    if (input.status === "approved" && !this.hasEvidence(input)) {
+      throw new BadRequestException("Approved insights require evidence.");
+    }
     return this.prisma.$transaction(async (tx) => {
       const insight = await tx.insight.create({
         data: {
@@ -61,6 +71,9 @@ export class InsightsService {
   async addVersion(insightId: string, input: CreateInsightVersionInput) {
     return this.prisma.$transaction(async (tx) => {
       const insight = await tx.insight.findUniqueOrThrow({ where: { id: insightId } });
+      if (insight.status === "approved" && !this.hasEvidence(input)) {
+        throw new BadRequestException("Approved insights require evidence.");
+      }
       const nextVersion = insight.versionNumber + 1;
       await tx.insight.update({
         where: { id: insightId },

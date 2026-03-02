@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { createHmac } from "crypto";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 
 type TokenPayload = {
@@ -60,7 +61,7 @@ export class EmbedService {
             action: "embed.completed",
             entityType: "study",
             entityId: studyId,
-            metadata: payload,
+            metadata: payload as Prisma.InputJsonValue,
           },
         });
       }

@@ -1,0 +1,19 @@
+groups:
+  - name: sensehub-alerts
+    rules:
+      - alert: SensehubApiDown
+        expr: up{job="sensehub-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Sensehub API is down"
+          description: "No successful scrapes for sensehub-api."
+      - alert: SensehubWebDown
+        expr: up{job="sensehub-web"} == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Sensehub web is down"
+          description: "No successful scrapes for sensehub-web."

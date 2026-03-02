@@ -1,3 +1,10 @@
+node_modules/
+dist/
+.env
+.env.*
+apps/web/.env
+apps/e2e/test-results/
+apps/e2e/playwright-report/
 node_modules
 .env
 .env.*

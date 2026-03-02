@@ -33,6 +33,80 @@ services:
       - "9001:9001"
     volumes:
       - minio_data:/data
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.102.0
+    command: ["--config=/etc/otelcol/config.yml"]
+    volumes:
+      - ../otel/collector-config.yml:/etc/otelcol/config.yml:ro
+    ports:
+      - "4318:4318"
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    volumes:
+      - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports:
+      - "9090:9090"
+  grafana:
+    image: grafana/grafana:11.2.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ../monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ../monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3001:3000"
+  api:
+    build:
+      context: ../../
+      dockerfile: apps/api/Dockerfile
+    depends_on:
+      - postgres
+      - redis
+      - opensearch
+      - minio
+    env_file:
+      - ../../apps/api/.env
+    environment:
+      DATABASE_URL: postgresql://sensehub:sensehub@postgres:5432/sensehub?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      OPENSEARCH_URL: http://opensearch:9200
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: sensehub
+      S3_SECRET_KEY: sensehubstorage
+      S3_BUCKET: sensehub
+      WEB_BASE_URL: http://localhost:3000
+      CORS_ORIGIN: http://localhost:3000
+    ports:
+      - "4000:4000"
+  worker:
+    build:
+      context: ../../
+      dockerfile: apps/worker/Dockerfile
+    depends_on:
+      - redis
+      - api
+    env_file:
+      - ../../apps/api/.env
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      API_URL: http://api:4000
+  web:
+    build:
+      context: ../../
+      dockerfile: apps/web/Dockerfile
+    depends_on:
+      - api
+    env_file:
+      - ../../apps/web/.env
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+    ports:
+      - "3000:3000"
 volumes:
   postgres_data:
   minio_data:

@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateAlertInput, CreateAlertViewInput } from "./alerts.dto";
 
@@ -27,7 +28,7 @@ export class AlertsService {
         workspaceId: input.workspaceId,
         type: input.type,
         severity: input.severity,
-        payload: input.payload,
+        payload: input.payload as Prisma.InputJsonValue,
       },
     });
     await this.prisma.auditEvent.create({
@@ -56,7 +57,7 @@ export class AlertsService {
         workspaceId: input.workspaceId,
         name: input.name,
         createdByUserId: input.createdByUserId,
-        filters: input.filters,
+        filters: input.filters as Prisma.InputJsonValue,
       },
     });
   }

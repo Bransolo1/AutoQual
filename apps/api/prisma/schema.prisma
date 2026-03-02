@@ -69,6 +69,8 @@ model Workspace {
   trustArtifacts TrustArtifact[]
   alerts    AlertEvent[]
   alertViews AlertView[]
+  shareChecklists ShareChecklist[]
+  revokedTokens RevokedToken[]
 }
 
 model User {
@@ -80,6 +82,7 @@ model User {
   updatedAt   DateTime         @updatedAt
   workspace   Workspace        @relation(fields: [workspaceId], references: [id])
   roles       RoleAssignment[]
+  revokedTokens RevokedToken[]
 }
 
 model RoleAssignment {
@@ -234,6 +237,7 @@ model Study {
   screeningLogic Json?
   interviewGuide Json?
   syntheticEnabled Boolean @default(false)
+  quotaTargets Json?
   localizationChecklist Json?
   recruitmentChecklist Json?
   activationChecklist Json?
@@ -247,7 +251,9 @@ model Study {
   participants Participant[]
   sessions    Session[]
   insights    Insight[]
+  themes      Theme[]
   stories     Story[]
+  exports     Export[]
   feedback    StakeholderFeedback[]
   activationMetrics ActivationMetric[]
 }
@@ -384,6 +390,7 @@ model Theme {
   studyId   String
   label     String
   createdAt DateTime @default(now())
+  study     Study    @relation(fields: [studyId], references: [id])
 }
 
 model Insight {
@@ -423,6 +430,7 @@ model Export {
   type      String
   storageKey String
   createdAt DateTime @default(now())
+  study     Study    @relation(fields: [studyId], references: [id])
 }
 
 model InsightVersion {

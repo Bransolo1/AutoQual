@@ -1,0 +1,19 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sensehub-api-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: sensehub-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sensehub-web-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: sensehub-web

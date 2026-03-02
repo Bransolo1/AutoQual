@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
-import { getNextModeratorPrompt } from "../../../../packages/ai-adapters/src";
+import { getNextModeratorPrompt } from "../../../../../packages/ai-adapters/src";
 
 @Injectable()
 export class ModeratorService {

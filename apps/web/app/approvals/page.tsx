@@ -35,6 +35,8 @@ export default function ApprovalsPage() {
   const [typeFilter, setTypeFilter] = useState(initialFilters.type);
   const [createType, setCreateType] = useState("study");
   const [createEntityId, setCreateEntityId] = useState("");
+  const [evidenceGaps, setEvidenceGaps] = useState<Record<string, number>>({});
+  const [approvalStatusMessage, setApprovalStatusMessage] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -46,6 +48,26 @@ export default function ApprovalsPage() {
       .then((r) => (r.ok ? r.json() : []))
       .then(setApprovals);
   }, [linkedEntityId, approvalId, statusFilter, typeFilter]);
+
+  useEffect(() => {
+    const insightSetIds = Array.from(
+      new Set(approvals.filter((approval) => approval.linkedEntityType === "insight_set").map((a) => a.linkedEntityId)),
+    );
+    if (insightSetIds.length === 0) {
+      setEvidenceGaps({});
+      return;
+    }
+    Promise.all(
+      insightSetIds.map(async (studyId) => {
+        const res = await fetch(`${API_BASE}/analysis/study/${studyId}/evidence-coverage`, { headers: HEADERS });
+        if (!res.ok) return [studyId, 0] as const;
+        const payload = (await res.json()) as { gapCount?: number };
+        return [studyId, payload.gapCount ?? 0] as const;
+      }),
+    )
+      .then((entries) => setEvidenceGaps(Object.fromEntries(entries)))
+      .catch(() => undefined);
+  }, [approvals]);
 
   const refreshApprovals = async () => {
     const params = new URLSearchParams();
@@ -75,7 +97,7 @@ export default function ApprovalsPage() {
   };
 
   const updateStatus = async (id: string, status: "approved" | "rejected") => {
-    await fetch(`${API_BASE}/approvals/${id}/status`, {
+    const res = await fetch(`${API_BASE}/approvals/${id}/status`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", ...HEADERS },
       body: JSON.stringify({
@@ -86,6 +108,16 @@ export default function ApprovalsPage() {
         actorUserId: "demo-user",
       }),
     });
+    if (!res.ok) {
+      const payload = await res.json().catch(() => null);
+      const message =
+        typeof payload?.message === "string"
+          ? payload.message
+          : "Unable to update approval status.";
+      setApprovalStatusMessage(message);
+      return;
+    }
+    setApprovalStatusMessage("");
     await refreshApprovals();
   };
 
@@ -128,6 +160,11 @@ export default function ApprovalsPage() {
           <option value="deliverable_pack">Deliverable pack</option>
         </select>
       </div>
+      {approvalStatusMessage && (
+        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700">
+          {approvalStatusMessage}
+        </div>
+      )}
       <div className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold">Create approval</h2>
         <div className="mt-3 flex flex-wrap gap-3">
@@ -210,7 +247,7 @@ export default function ApprovalsPage() {
               <p className="mt-1 text-xs text-gray-500">Note: {approval.decisionNote}</p>
             )}
             {approval.status === "requested" && (
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => updateStatus(approval.id, "approved")}
@@ -227,6 +264,12 @@ export default function ApprovalsPage() {
                 </button>
                 {approval.linkedEntityType === "insight_set" && (
                   <>
+                    {evidenceGaps[approval.linkedEntityId] > 0 && (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                        Evidence gaps detected ({evidenceGaps[approval.linkedEntityId]}). Add clips or transcript spans
+                        before approving.
+                      </div>
+                    )}
                     <input
                       value={reviewerId}
                       onChange={(e) => setReviewerId(e.target.value)}

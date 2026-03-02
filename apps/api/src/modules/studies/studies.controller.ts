@@ -8,6 +8,7 @@ import {
   UpdateRolloutPlanInput,
   UpdateDistributionTrackingInput,
   UpdateDeliveryHealthInput,
+  UpdateQuotaTargetsInput,
 } from "./studies.dto";
 
 @Controller("studies")
@@ -53,6 +54,14 @@ export class StudiesController {
     return this.studiesService.updateRecruitmentChecklist(id, input.checklist ?? {});
   }
 
+  @Post(":id/quotas")
+  updateQuotas(
+    @Param("id") id: string,
+    @Body() input: UpdateQuotaTargetsInput,
+  ) {
+    return this.studiesService.updateQuotaTargets(id, input.quotaTargets ?? {});
+  }
+
   @Post(":id/activation")
   updateActivation(
     @Param("id") id: string,
@@ -88,5 +97,10 @@ export class StudiesController {
   @Get(":id/segment-summary")
   segmentSummary(@Param("id") id: string) {
     return this.studiesService.segmentSummary(id);
+  }
+
+  @Get(":id/quota-status")
+  quotaStatus(@Param("id") id: string) {
+    return this.studiesService.quotaStatus(id);
   }
 }

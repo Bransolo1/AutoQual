@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sensehub-otel-collector
+data:
+  config.yml: |
+    receivers:
+      otlp:
+        protocols:
+          http:
+
+    exporters:
+      logging:
+        loglevel: info
+
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          exporters: [logging]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sensehub-otel-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sensehub-otel-collector
+  template:
+    metadata:
+      labels:
+        app: sensehub-otel-collector
+    spec:
+      containers:
+        - name: otel-collector
+          image: otel/opentelemetry-collector-contrib:0.102.0
+          args: ["--config=/etc/otelcol/config.yml"]
+          volumeMounts:
+            - name: otel-config
+              mountPath: /etc/otelcol/config.yml
+              subPath: config.yml
+          ports:
+            - containerPort: 4318
+      volumes:
+        - name: otel-config
+          configMap:
+            name: sensehub-otel-collector
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+spec:
+  selector:
+    app: sensehub-otel-collector
+  ports:
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318

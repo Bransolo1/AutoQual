@@ -10,6 +10,7 @@ export type CreateStudyInput = {
   screeningLogic?: Record<string, unknown> | null;
   interviewGuide?: Record<string, unknown> | null;
   syntheticEnabled?: boolean;
+  quotaTargets?: Record<string, number> | null;
   localizationChecklist?: Record<string, boolean> | null;
   recruitmentChecklist?: Record<string, boolean> | null;
   activationChecklist?: Record<string, boolean> | null;
@@ -40,4 +41,8 @@ export type UpdateDistributionTrackingInput = {
 
 export type UpdateDeliveryHealthInput = {
   deliveryHealth: { score: number; status: string; notes?: string };
+};
+
+export type UpdateQuotaTargetsInput = {
+  quotaTargets: Record<string, number>;
 };

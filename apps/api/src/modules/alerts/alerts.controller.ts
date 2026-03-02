@@ -43,9 +43,9 @@ export class AlertsController {
       from: from ? new Date(from) : undefined,
       to: to ? new Date(to) : undefined,
     });
-    const rows = [
+    const rows: string[][] = [
       ["id", "type", "severity", "createdAt", "payload"],
-      ...alerts.map((alert) => [
+      ...alerts.map((alert: { id: string; type: string; severity: string; createdAt: Date; payload: unknown }) => [
         alert.id,
         alert.type.replaceAll('"', '""'),
         alert.severity,
@@ -53,7 +53,7 @@ export class AlertsController {
         JSON.stringify(alert.payload).replaceAll('"', '""'),
       ]),
     ];
-    const csv = rows.map((row) => row.map((value) => `"${value}"`).join(",")).join("\n");
+    const csv = rows.map((row) => row.map((value: string) => `"${value}"`).join(",")).join("\n");
     res.setHeader("Content-Type", "text/csv");
     res.setHeader("Content-Disposition", "attachment; filename=alerts.csv");
     res.send(csv);

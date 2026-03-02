@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { ProjectStatus } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateProjectInput } from "./projects.dto";
 import { DEFAULT_MILESTONES, MILESTONE_TASK_TEMPLATES } from "./intake-templates";
@@ -21,7 +22,7 @@ export class ProjectsService {
     return this.prisma.project.findMany({
       where: {
         workspaceId,
-        status: status || undefined,
+        status: status ? (status as ProjectStatus) : undefined,
         ownerUserId: ownerUserId || undefined,
         ...(query
           ? {

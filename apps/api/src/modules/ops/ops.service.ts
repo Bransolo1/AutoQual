@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { QueueService } from "../../queue/queue.service";
 
@@ -335,7 +336,7 @@ export class OpsService {
           workspaceId,
           type: alert.type,
           severity: alert.severity,
-          payload: alert.payload,
+          payload: alert.payload as Prisma.InputJsonValue,
         },
       });
       await this.prisma.auditEvent.create({

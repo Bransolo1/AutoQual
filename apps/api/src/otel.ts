@@ -17,7 +17,7 @@ const sdk = new NodeSDK({
   instrumentations: [getNodeAutoInstrumentations()],
 });
 
-sdk.start().catch((error) => {
+Promise.resolve(sdk.start()).catch((error: unknown) => {
   process.stdout.write(
     JSON.stringify({
       level: "error",
