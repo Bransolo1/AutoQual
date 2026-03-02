@@ -18,11 +18,11 @@ describe("home", () => {
   it("renders primary navigation and hero content", async () => {
     render(await HomePage());
 
-    expect(screen.getByText("Sensehub Auto Qual")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "View Projects" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Explore Features" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Insights Review" })).toBeInTheDocument();
-    expect(screen.getByText("What you get")).toBeInTheDocument();
+    expect(screen.getByText("OpenQual")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Start a Study" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Configure API Key" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "How It Works" })).toBeInTheDocument();
+    expect(screen.getByText("Why OpenQual?")).toBeInTheDocument();
     expect(screen.getByText("How it works")).toBeInTheDocument();
   });
 });
