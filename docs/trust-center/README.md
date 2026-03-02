@@ -22,6 +22,10 @@ Use it to align onboarding, procurement, and security reviews.
 - Subprocessor list: `docs/trust-center/SUBPROCESSORS.md`
 - Penetration test summary: `docs/trust-center/PEN_TEST_SUMMARY.md`
 - Vulnerability disclosure policy: `docs/trust-center/VULNERABILITY_DISCLOSURE.md`
+- DPIA template: `docs/trust-center/DPIA_TEMPLATE.md`
+- Data residency overview: `docs/trust-center/DATA_RESIDENCY.md`
+- Vendor security questionnaire: `docs/trust-center/VENDOR_SECURITY_QUESTIONNAIRE.md`
+- SLA & support policy: `docs/trust-center/SLA_SUPPORT.md`
 
 ## Security Contacts
 - Security contact: security@company.test

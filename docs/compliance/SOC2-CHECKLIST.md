@@ -11,6 +11,7 @@
 - [ ] Health checks and uptime monitoring
 - [ ] Incident response playbook and on-call rotation
 - [ ] Backup and restore process (DB + object storage)
+- [ ] BCP/DR plan with RTO/RPO (docs/architecture/BCP_DR.md)
 
 ## Confidentiality
 - [ ] Encryption in transit (TLS) across services
@@ -36,3 +37,6 @@
 - [ ] Data Processing Addendum (docs/trust-center/DPA.md)
 - [ ] Subprocessor list (docs/trust-center/SUBPROCESSORS.md)
 - [ ] Penetration test summary (docs/trust-center/PEN_TEST_SUMMARY.md)
+- [ ] DPIA template (docs/trust-center/DPIA_TEMPLATE.md)
+- [ ] Data residency overview (docs/trust-center/DATA_RESIDENCY.md)
+- [ ] SLA & support policy (docs/trust-center/SLA_SUPPORT.md)
