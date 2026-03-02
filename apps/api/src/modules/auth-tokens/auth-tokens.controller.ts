@@ -1,7 +1,7 @@
-import { Body, Controller, Post } from "@nestjs/common";
+import { Body, Controller, Get, Post, Query } from "@nestjs/common";
 import { Roles } from "../../auth/roles.decorator";
 import { AuthTokensService } from "./auth-tokens.service";
-import { RevokeTokenInput } from "./auth-tokens.dto";
+import { ListRevokedTokensQuery, RevokeTokenInput } from "./auth-tokens.dto";
 
 @Controller("auth/tokens")
 export class AuthTokensController {
@@ -17,5 +17,11 @@ export class AuthTokensController {
   @Roles("admin")
   purge() {
     return this.authTokensService.purgeExpired();
+  }
+
+  @Get("revoked")
+  @Roles("admin")
+  listRevoked(@Query() query: ListRevokedTokensQuery) {
+    return this.authTokensService.listRevoked(query);
   }
 }

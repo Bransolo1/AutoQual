@@ -34,6 +34,16 @@ type TrustArtifact = {
   createdAt: string;
 };
 
+type RevokedTokenItem = {
+  id: string;
+  jti: string;
+  userId: string | null;
+  revokedByUserId: string;
+  revokedReason: string | null;
+  expiresAt: string;
+  createdAt: string;
+};
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<WorkspaceSettings | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -58,6 +68,15 @@ export default function SettingsPage() {
   const [auditRetentionDays, setAuditRetentionDays] = useState("365");
   const [auditRetentionEnabled, setAuditRetentionEnabled] = useState(false);
   const [retentionConfigStatus, setRetentionConfigStatus] = useState<string | null>(null);
+  const [revokedTokens, setRevokedTokens] = useState<RevokedTokenItem[]>([]);
+  const [revokedLoading, setRevokedLoading] = useState(false);
+  const [revokedError, setRevokedError] = useState<string | null>(null);
+  const [revokedQuery, setRevokedQuery] = useState("");
+  const [revokedUserId, setRevokedUserId] = useState("");
+  const [revokedStatus, setRevokedStatus] = useState<"active" | "expired" | "all">("active");
+  const [revokedCursor, setRevokedCursor] = useState<string | null>(null);
+  const [revokedHasMore, setRevokedHasMore] = useState(false);
+  const [purgeStatus, setPurgeStatus] = useState<string | null>(null);
 
   const loadSettings = async () => {
     const res = await fetch(`${API_BASE}/workspaces/demo-workspace-id`, { headers: HEADERS });
@@ -89,6 +108,7 @@ export default function SettingsPage() {
     fetch(`${API_BASE}/secrets/health`, { headers: HEADERS })
       .then((r) => (r.ok ? r.json() : null))
       .then(setSecretsHealth);
+    loadRevokedTokens({ reset: true });
   }, []);
 
   useEffect(() => {
@@ -182,6 +202,45 @@ export default function SettingsPage() {
     if (res.ok) {
       setRevokeJti("");
       setRevokeReason("");
+    }
+  };
+
+  const loadRevokedTokens = async ({ reset }: { reset?: boolean }) => {
+    setRevokedLoading(true);
+    setRevokedError(null);
+    const params = new URLSearchParams({
+      workspaceId: "demo-workspace-id",
+      status: revokedStatus,
+    });
+    if (revokedQuery.trim()) params.set("q", revokedQuery.trim());
+    if (revokedUserId.trim()) params.set("userId", revokedUserId.trim());
+    if (!reset && revokedCursor) params.set("cursor", revokedCursor);
+    params.set("limit", "20");
+
+    const res = await fetch(`${API_BASE}/auth/tokens/revoked?${params.toString()}`, {
+      headers: HEADERS,
+    });
+    if (!res.ok) {
+      setRevokedError("Failed to load revoked tokens.");
+      setRevokedLoading(false);
+      return;
+    }
+    const payload = (await res.json()) as { items: RevokedTokenItem[]; nextCursor: string | null };
+    setRevokedTokens((prev) => (reset ? payload.items : [...prev, ...payload.items]));
+    setRevokedCursor(payload.nextCursor);
+    setRevokedHasMore(Boolean(payload.nextCursor));
+    setRevokedLoading(false);
+  };
+
+  const purgeRevokedTokens = async () => {
+    setPurgeStatus("Purging expired tokens...");
+    const res = await fetch(`${API_BASE}/auth/tokens/purge`, {
+      method: "POST",
+      headers: HEADERS,
+    });
+    setPurgeStatus(res.ok ? "Expired tokens purged." : "Failed to purge tokens.");
+    if (res.ok) {
+      await loadRevokedTokens({ reset: true });
     }
   };
 
@@ -543,7 +602,93 @@ export default function SettingsPage() {
           >
             Revoke token
           </button>
+          <button
+            type="button"
+            onClick={purgeRevokedTokens}
+            className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600"
+          >
+            Purge expired
+          </button>
           {revokeStatus && <span className="text-xs text-gray-500">{revokeStatus}</span>}
+          {purgeStatus && <span className="text-xs text-gray-500">{purgeStatus}</span>}
+        </div>
+
+        <div className="mt-6 rounded-xl border border-gray-100 p-4">
+          <div className="text-xs uppercase text-gray-500">Revoked tokens</div>
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
+            <label className="text-xs text-gray-500">
+              JTI search
+              <input
+                value={revokedQuery}
+                onChange={(event) => setRevokedQuery(event.target.value)}
+                placeholder="Search by JTI or reason"
+                className="mt-1 w-full rounded-lg border border-gray-200 p-2 text-sm"
+              />
+            </label>
+            <label className="text-xs text-gray-500">
+              User ID
+              <input
+                value={revokedUserId}
+                onChange={(event) => setRevokedUserId(event.target.value)}
+                placeholder="Optional user ID"
+                className="mt-1 w-full rounded-lg border border-gray-200 p-2 text-sm"
+              />
+            </label>
+            <label className="text-xs text-gray-500">
+              Status
+              <select
+                value={revokedStatus}
+                onChange={(event) => setRevokedStatus(event.target.value as "active" | "expired" | "all")}
+                className="mt-1 w-full rounded-lg border border-gray-200 p-2 text-sm"
+              >
+                <option value="active">Active</option>
+                <option value="expired">Expired</option>
+                <option value="all">All</option>
+              </select>
+            </label>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            <button
+              type="button"
+              onClick={() => loadRevokedTokens({ reset: true })}
+              className="rounded-full border border-brand-500 px-3 py-1 font-medium text-brand-600"
+            >
+              Apply filters
+            </button>
+            {revokedHasMore && (
+              <button
+                type="button"
+                onClick={() => loadRevokedTokens({ reset: false })}
+                className="rounded-full border border-gray-200 px-3 py-1 text-gray-600"
+              >
+                Load more
+              </button>
+            )}
+          </div>
+          {revokedError && <p className="mt-3 text-xs text-red-500">{revokedError}</p>}
+          {revokedLoading ? (
+            <p className="mt-3 text-xs text-gray-500">Loading revoked tokens…</p>
+          ) : revokedTokens.length === 0 ? (
+            <p className="mt-3 text-xs text-gray-500">No revoked tokens found.</p>
+          ) : (
+            <div className="mt-3 space-y-2 text-xs text-gray-600">
+              {revokedTokens.map((token) => (
+                <div key={token.id} className="rounded-lg border border-gray-100 p-3">
+                  <div className="text-sm font-medium text-gray-800">{token.jti}</div>
+                  <div className="mt-1 text-xs text-gray-500">
+                    User {token.userId ?? "n/a"} · Revoked by {token.revokedByUserId}
+                  </div>
+                  <div className="mt-1 text-xs text-gray-500">
+                    Expires {new Date(token.expiresAt).toLocaleString()} · Revoked{" "}
+                    {new Date(token.createdAt).toLocaleString()}
+                  </div>
+                  {token.revokedReason && (
+                    <div className="mt-1 text-xs text-gray-500">Reason: {token.revokedReason}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

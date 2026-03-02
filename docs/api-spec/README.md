@@ -140,6 +140,7 @@
 - `POST /auth/sso/callback` (query: code)
 - `GET /secrets/health`
 - `POST /auth/tokens/revoke` (body: workspaceId, actorUserId, userId?, jti, expiresAt, reason?)
+- `GET /auth/tokens/revoked` (query: workspaceId, userId?, q?, status?, limit?, cursor?)
 - `POST /auth/tokens/purge`
 - `GET /feedback` (query: projectId)
 - `POST /feedback` (body: workspaceId, projectId, studyId?, deliverableType, deliverableId?, stakeholderName, stakeholderRole?, rating?, sentiment?, notes?)
