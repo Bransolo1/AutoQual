@@ -34,6 +34,10 @@ export class QueueService implements OnModuleDestroy {
     return this.pipeline.add("retention.archive", { workspaceId });
   }
 
+  async addTokenRevocationPurge() {
+    return this.pipeline.add("token.revocation.purge", {}, { repeat: { every: 24 * 60 * 60 * 1000 } });
+  }
+
   async onModuleDestroy() {
     await this.pipeline.close();
   }

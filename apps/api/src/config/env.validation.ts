@@ -30,6 +30,7 @@ export const envValidationSchema = Joi.object({
   SECRETS_PROVIDER: Joi.string().valid("env", "vault").default("env"),
   VAULT_ADDR: Joi.string().uri().optional(),
   VAULT_ROLE: Joi.string().optional(),
+  TOKEN_REVOCATION_PURGE_ENABLED: Joi.boolean().default(false),
   THROTTLE_TTL: Joi.number().default(60),
   THROTTLE_LIMIT: Joi.number().default(120),
 }).unknown(true);

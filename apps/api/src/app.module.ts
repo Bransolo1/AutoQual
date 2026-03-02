@@ -1,4 +1,4 @@
-import { Module, NestModule, MiddlewareConsumer } from "@nestjs/common";
+import { Module, NestModule, MiddlewareConsumer, OnModuleInit } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { LoggerMiddleware } from "./common/logger.middleware";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
@@ -97,8 +97,16 @@ import { envValidationSchema } from "./config/env.validation";
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ]
 })
-export class AppModule implements NestModule {
+export class AppModule implements NestModule, OnModuleInit {
+  constructor(private readonly queueService: QueueService) {}
+
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(LoggerMiddleware).forRoutes("*");
+  }
+
+  onModuleInit() {
+    if (process.env.TOKEN_REVOCATION_PURGE_ENABLED === "true") {
+      void this.queueService.addTokenRevocationPurge();
+    }
   }
 }
