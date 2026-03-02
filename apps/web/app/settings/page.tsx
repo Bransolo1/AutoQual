@@ -58,6 +58,10 @@ type AccessReview = {
 };
 
 export default function SettingsPage() {
+  const [aiProvider, setAiProvider] = useState("openai");
+  const [apiKey, setApiKey] = useState("");
+  const [apiKeyStatus, setApiKeyStatus] = useState<string | null>(null);
+
   const [settings, setSettings] = useState<WorkspaceSettings | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [lastRetention, setLastRetention] = useState<string | null>(null);
@@ -318,6 +322,81 @@ export default function SettingsPage() {
 
   return (
     <main className="min-h-screen px-8 py-10">
+      <section className="mb-10 max-w-xl rounded-2xl bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold">LLM API Keys</h2>
+        <p className="mt-2 text-sm text-gray-600">
+          Bring your own key — connect your OpenAI or Anthropic account to power AI interviews.
+        </p>
+        <div className="mt-4 grid gap-3">
+          <label className="text-sm text-gray-600">
+            Provider
+            <select
+              className="mt-2 w-full rounded-lg border border-gray-200 p-2 text-sm"
+              value={aiProvider}
+              onChange={(event) => setAiProvider(event.target.value)}
+            >
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+            </select>
+          </label>
+          <label className="text-sm text-gray-600">
+            API key
+            <input
+              type="password"
+              className="mt-2 w-full rounded-lg border border-gray-200 p-2 text-sm"
+              value={apiKey}
+              onChange={(event) => setApiKey(event.target.value)}
+              placeholder={aiProvider === "openai" ? "sk-..." : "sk-ant-..."}
+            />
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                setApiKeyStatus("Testing connection...");
+                try {
+                  const res = await fetch(`${API_BASE}/ai/test`, {
+                    method: "POST",
+                    headers: { ...HEADERS, "Content-Type": "application/json" },
+                    body: JSON.stringify({ provider: aiProvider, apiKey }),
+                  });
+                  setApiKeyStatus(res.ok ? "Connection successful!" : "Connection failed.");
+                } catch {
+                  setApiKeyStatus("Connection failed.");
+                }
+              }}
+              className="rounded-full border border-gray-200 px-4 py-2 text-sm text-gray-600"
+            >
+              Test connection
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                setApiKeyStatus("Saving key...");
+                try {
+                  const res = await fetch(`${API_BASE}/workspaces/demo-workspace-id/settings`, {
+                    method: "PATCH",
+                    headers: { ...HEADERS, "Content-Type": "application/json" },
+                    body: JSON.stringify({ aiProvider, aiApiKey: apiKey }),
+                  });
+                  setApiKeyStatus(res.ok ? "Key saved." : "Failed to save key.");
+                } catch {
+                  setApiKeyStatus("Failed to save key.");
+                }
+              }}
+              className="rounded-full bg-brand-600 px-4 py-2 text-sm font-medium text-white"
+            >
+              Save key
+            </button>
+          </div>
+          {apiKeyStatus && <p className="text-xs text-gray-500">{apiKeyStatus}</p>}
+        </div>
+        <p className="mt-4 text-xs text-gray-400">
+          Your key is stored in your workspace and never shared. You pay only what your LLM provider
+          charges — typically ~$0.30–0.80 per interview.
+        </p>
+      </section>
+
       <h1 className="text-2xl font-semibold">Workspace Settings</h1>
       <p className="mt-2 text-sm text-gray-600">
         Configure retention and privacy controls for this workspace.
