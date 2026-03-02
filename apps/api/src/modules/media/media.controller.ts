@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query, UseInterceptors, UploadedFile } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { MediaService } from "./media.service";
-import { CreateClipInput, CreateMediaArtifactInput } from "./media.dto";
+import { CreateClipInput, CreateMediaArtifactInput, UpdateMediaLegalHoldInput } from "./media.dto";
 import { Roles } from "../../auth/roles.decorator";
 
 @Controller("media")
@@ -39,6 +39,12 @@ export class MediaController {
   @Roles("admin", "system")
   processArtifact(@Param("id") id: string) {
     return this.mediaService.processArtifact(id);
+  }
+
+  @Post("artifacts/:id/legal-hold")
+  @Roles("admin")
+  setLegalHold(@Param("id") id: string, @Body() input: UpdateMediaLegalHoldInput) {
+    return this.mediaService.setLegalHold(id, input.enabled);
   }
 
   @Post("chunk/init")
@@ -108,10 +114,24 @@ export class MediaController {
     return this.mediaService.createClip(input);
   }
 
+  @Get("retention/preview")
+  @Roles("admin")
+  previewRetention(@Query("workspaceId") workspaceId: string, @Query("retentionDays") retentionDays?: string) {
+    const parsed = retentionDays ? Number(retentionDays) : undefined;
+    return this.mediaService.previewRetention(
+      workspaceId,
+      Number.isFinite(parsed) ? parsed : undefined,
+    );
+  }
+
   @Post("retention/archive")
+  @Roles("admin")
   archiveStale(@Query("workspaceId") workspaceId: string, @Query("retentionDays") retentionDays?: string) {
-    const parsed = retentionDays ? Number(retentionDays) : 365;
-    return this.mediaService.archiveStaleMedia(workspaceId, Number.isFinite(parsed) ? parsed : 365);
+    const parsed = retentionDays ? Number(retentionDays) : undefined;
+    return this.mediaService.archiveStaleMedia(
+      workspaceId,
+      Number.isFinite(parsed) ? parsed : undefined,
+    );
   }
 
   @Get("clips/:id/thumbnail")

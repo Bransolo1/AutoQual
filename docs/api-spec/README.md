@@ -64,9 +64,11 @@
 - `POST /embed/token`, `GET /embed/:token`
 - `GET /media/artifacts`, `POST /media/artifacts`
   - media artifacts include `status` (uploaded, processing, ready, failed)
+- `POST /media/artifacts/:id/legal-hold` (body: enabled)
 - `GET /media/artifacts/:id/signed-url`
 - `GET /media/clips/:id/thumbnail`
 - `POST /media/upload-url` (body: storageKey, contentType)
+- `GET /media/retention/preview` (query: workspaceId, retentionDays?)
 - `POST /media/retention/archive` (query: workspaceId, retentionDays?)
 - `POST /media/chunk/init` (body: sessionId, fileName, contentType)
 - `POST /media/chunk/part` (body: uploadId, partNumber, etag)
@@ -152,6 +154,10 @@
 - `GET /auth/sso/config`
 - `GET /auth/sso/login` (query: workspaceId)
 - `POST /auth/sso/callback` (query: code, workspaceId)
+- `GET /users` (query: workspaceId)
+- `POST /users/:id/roles` (body: roles[])
+- `GET /access-reviews` (query: workspaceId, limit?)
+- `POST /access-reviews` (body: workspaceId, reviewerUserId, notes?, reviewedUserIds?)
 - `GET /secrets/health`
 - `POST /auth/tokens/revoke` (body: workspaceId, actorUserId, userId?, jti, expiresAt, reason?)
 - `GET /auth/tokens/revoked` (query: workspaceId, userId?, q?, status?, limit?, cursor?)

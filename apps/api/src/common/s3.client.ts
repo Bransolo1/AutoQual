@@ -4,7 +4,8 @@ import {
   PutObjectCommand,
   CreateMultipartUploadCommand,
   UploadPartCommand,
-  CompleteMultipartUploadCommand
+  CompleteMultipartUploadCommand,
+  DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl as sign } from "@aws-sdk/s3-request-presigner";
 
@@ -83,5 +84,11 @@ export async function completeMultipartUpload(
     UploadId: uploadId,
     MultipartUpload: { Parts: parts },
   });
+  return s3.send(command);
+}
+
+export async function deleteObject(storageKey: string) {
+  const bucket = process.env.S3_BUCKET || "sensehub";
+  const command = new DeleteObjectCommand({ Bucket: bucket, Key: storageKey });
   return s3.send(command);
 }

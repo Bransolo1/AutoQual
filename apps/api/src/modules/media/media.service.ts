@@ -5,9 +5,10 @@ import { CreateClipInput, CreateMediaArtifactInput } from "./media.dto";
 import {
   completeMultipartUpload,
   createMultipartUpload,
+  deleteObject,
   getSignedMediaUrl,
   getSignedPartUrl,
-  getSignedUploadUrl
+  getSignedUploadUrl,
 } from "../../common/s3.client";
 
 @Injectable()
@@ -73,19 +74,37 @@ export class MediaService {
     return this.prisma.clip.findMany({ where: { mediaArtifactId } });
   }
 
-  async archiveStaleMedia(workspaceId: string, retentionDays: number) {
-    const cutoff = new Date(Date.now() - retentionDays * 86400000);
+  async previewRetention(workspaceId: string, retentionDays?: number) {
+    const days = await this.resolveRetentionDays(workspaceId, retentionDays);
+    const cutoff = new Date(Date.now() - days * 86400000);
     const artifacts = await this.prisma.mediaArtifact.findMany({
-      where: { session: { study: { workspaceId } }, createdAt: { lt: cutoff } },
-      select: { id: true },
+      where: {
+        session: { study: { workspaceId } },
+        createdAt: { lt: cutoff },
+        legalHold: false,
+      },
+      select: { id: true, storageKey: true, createdAt: true },
     });
-    if (artifacts.length === 0) {
-      return { archived: 0, cutoff, retentionDays };
+    return { cutoff, retentionDays: days, candidates: artifacts };
+  }
+
+  async archiveStaleMedia(workspaceId: string, retentionDays?: number) {
+    const { cutoff, retentionDays: days, candidates } = await this.previewRetention(workspaceId, retentionDays);
+    if (candidates.length === 0) {
+      return { archived: 0, cutoff, retentionDays: days };
     }
-    const ids = artifacts.map((artifact) => artifact.id);
+    await Promise.all(candidates.map((artifact) => deleteObject(artifact.storageKey)));
+    const ids = candidates.map((artifact) => artifact.id);
     await this.prisma.clip.deleteMany({ where: { mediaArtifactId: { in: ids } } });
     const deleted = await this.prisma.mediaArtifact.deleteMany({ where: { id: { in: ids } } });
-    return { archived: deleted.count, cutoff, retentionDays };
+    return { archived: deleted.count, cutoff, retentionDays: days };
+  }
+
+  async setLegalHold(mediaArtifactId: string, enabled: boolean) {
+    return this.prisma.mediaArtifact.update({
+      where: { id: mediaArtifactId },
+      data: { legalHold: enabled },
+    });
   }
 
   async getClipThumbnail(clipId: string) {
@@ -134,5 +153,19 @@ export class MediaService {
     await completeMultipartUpload(storageKey, uploadId, parts);
     const artifact = await this.createArtifact({ sessionId, type, storageKey });
     return { completed: true, storageKey, uploadId, artifactId: artifact.id };
+  }
+
+  private async resolveRetentionDays(workspaceId: string, retentionDays?: number) {
+    if (typeof retentionDays === "number" && Number.isFinite(retentionDays)) {
+      return retentionDays;
+    }
+    const workspace = await this.prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { retentionDays: true },
+    });
+    if (typeof workspace?.retentionDays === "number") {
+      return workspace.retentionDays;
+    }
+    return Number(process.env.MEDIA_RETENTION_DAYS ?? 365);
   }
 }

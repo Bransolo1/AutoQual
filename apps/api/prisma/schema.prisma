@@ -93,6 +93,16 @@ model RoleAssignment {
   user      User     @relation(fields: [userId], references: [id])
 }
 
+model AccessReview {
+  id        String   @id @default(cuid())
+  workspaceId String
+  reviewerUserId String
+  notes     String?
+  reviewedUserIds Json?
+  createdAt DateTime @default(now())
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+}
+
 model RevokedToken {
   id              String   @id @default(cuid())
   workspaceId     String
@@ -377,6 +387,7 @@ model MediaArtifact {
   type      String
   storageKey String
   status    String   @default("uploaded")
+  legalHold Boolean  @default(false)
   createdAt DateTime @default(now())
   session   Session  @relation(fields: [sessionId], references: [id])
   clips     Clip[]
@@ -477,6 +488,9 @@ model AuditEvent {
   entityType String
   entityId  String
   metadata  Json
+  beforeHash String?
+  afterHash  String?
+  integrityHash String?
   requestId String?
   createdAt DateTime @default(now())
 }

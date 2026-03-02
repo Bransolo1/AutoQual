@@ -44,6 +44,21 @@ type RevokedTokenItem = {
   createdAt: string;
 };
 
+type WorkspaceUser = {
+  id: string;
+  email: string;
+  name: string;
+  roles: Array<{ id: string; role: string }>;
+};
+
+type AccessReview = {
+  id: string;
+  reviewerUserId: string;
+  notes?: string | null;
+  reviewedUserIds?: string[] | null;
+  createdAt: string;
+};
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<WorkspaceSettings | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -77,10 +92,30 @@ export default function SettingsPage() {
   const [revokedCursor, setRevokedCursor] = useState<string | null>(null);
   const [revokedHasMore, setRevokedHasMore] = useState(false);
   const [purgeStatus, setPurgeStatus] = useState<string | null>(null);
+  const [users, setUsers] = useState<WorkspaceUser[]>([]);
+  const [accessReviews, setAccessReviews] = useState<AccessReview[]>([]);
+  const [roleStatus, setRoleStatus] = useState<string | null>(null);
+  const [accessReviewNotes, setAccessReviewNotes] = useState("");
+  const [accessReviewUsers, setAccessReviewUsers] = useState("");
+  const [accessReviewStatus, setAccessReviewStatus] = useState<string | null>(null);
 
   const loadSettings = async () => {
     const res = await fetch(`${API_BASE}/workspaces/demo-workspace-id`, { headers: HEADERS });
     setSettings(res.ok ? await res.json() : null);
+  };
+
+  const loadUsers = async () => {
+    const res = await fetch(`${API_BASE}/users?workspaceId=demo-workspace-id`, { headers: HEADERS });
+    if (!res.ok) return;
+    setUsers(await res.json());
+  };
+
+  const loadAccessReviews = async () => {
+    const res = await fetch(`${API_BASE}/access-reviews?workspaceId=demo-workspace-id&limit=10`, {
+      headers: HEADERS,
+    });
+    if (!res.ok) return;
+    setAccessReviews(await res.json());
   };
 
   const loadTrustArtifacts = async () => {
@@ -109,6 +144,8 @@ export default function SettingsPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then(setSecretsHealth);
     loadRevokedTokens({ reset: true });
+    loadUsers();
+    loadAccessReviews();
   }, []);
 
   useEffect(() => {
@@ -241,6 +278,43 @@ export default function SettingsPage() {
     setPurgeStatus(res.ok ? "Expired tokens purged." : "Failed to purge tokens.");
     if (res.ok) {
       await loadRevokedTokens({ reset: true });
+    }
+  };
+
+  const updateUserRoles = async (userId: string, roles: string[]) => {
+    setRoleStatus("Updating roles...");
+    const res = await fetch(`${API_BASE}/users/${userId}/roles`, {
+      method: "POST",
+      headers: { ...HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify({ roles }),
+    });
+    setRoleStatus(res.ok ? "Roles updated." : "Failed to update roles.");
+    if (res.ok) {
+      await loadUsers();
+    }
+  };
+
+  const submitAccessReview = async () => {
+    setAccessReviewStatus("Submitting access review...");
+    const reviewedUserIds = accessReviewUsers
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const res = await fetch(`${API_BASE}/access-reviews`, {
+      method: "POST",
+      headers: { ...HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workspaceId: "demo-workspace-id",
+        reviewerUserId: "demo-user",
+        notes: accessReviewNotes.trim() || undefined,
+        reviewedUserIds,
+      }),
+    });
+    setAccessReviewStatus(res.ok ? "Access review logged." : "Failed to log review.");
+    if (res.ok) {
+      setAccessReviewNotes("");
+      setAccessReviewUsers("");
+      await loadAccessReviews();
     }
   };
 
@@ -689,6 +763,120 @@ export default function SettingsPage() {
               ))}
             </div>
           )}
+        </div>
+      </section>
+
+      <section className="mt-8 max-w-3xl rounded-2xl bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold">Access reviews & roles</h2>
+        <p className="mt-2 text-sm text-gray-600">
+          Track periodic access reviews and adjust workspace roles.
+        </p>
+        <div className="mt-4 rounded-xl border border-gray-100 p-4">
+          <div className="text-xs uppercase text-gray-500">Role assignments</div>
+          {users.length === 0 ? (
+            <p className="mt-3 text-xs text-gray-500">No users found.</p>
+          ) : (
+            <ul className="mt-3 space-y-3 text-xs text-gray-600">
+              {users.map((user) => {
+                const roleValue = user.roles.map((role) => role.role).join(", ");
+                return (
+                  <li key={user.id} className="rounded-lg border border-gray-100 p-3">
+                    <div className="text-sm font-medium text-gray-800">{user.name}</div>
+                    <div className="mt-1 text-xs text-gray-500">{user.email}</div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <input
+                        defaultValue={roleValue}
+                        placeholder="admin, analyst, viewer"
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs md:max-w-sm"
+                        onBlur={(event) =>
+                          updateUserRoles(
+                            user.id,
+                            event.target.value
+                              .split(",")
+                              .map((item) => item.trim())
+                              .filter(Boolean),
+                          )
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          const input = (event.currentTarget.previousSibling as HTMLInputElement | null);
+                          const roles = input?.value
+                            ? input.value
+                                .split(",")
+                                .map((item) => item.trim())
+                                .filter(Boolean)
+                            : [];
+                          updateUserRoles(user.id, roles);
+                        }}
+                        className="rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-600"
+                      >
+                        Save roles
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {roleStatus && <p className="mt-3 text-xs text-gray-500">{roleStatus}</p>}
+        </div>
+
+        <div className="mt-6 rounded-xl border border-gray-100 p-4">
+          <div className="text-xs uppercase text-gray-500">Log access review</div>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <label className="text-xs text-gray-500 md:col-span-2">
+              Reviewed user IDs (comma separated)
+              <input
+                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                value={accessReviewUsers}
+                onChange={(event) => setAccessReviewUsers(event.target.value)}
+                placeholder="user-1, user-2"
+              />
+            </label>
+            <label className="text-xs text-gray-500 md:col-span-2">
+              Notes
+              <input
+                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                value={accessReviewNotes}
+                onChange={(event) => setAccessReviewNotes(event.target.value)}
+                placeholder="Quarterly access review complete."
+              />
+            </label>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            <button
+              type="button"
+              onClick={submitAccessReview}
+              className="rounded-full border border-brand-500 px-3 py-1 font-medium text-brand-600"
+            >
+              Log review
+            </button>
+            {accessReviewStatus && <span className="text-xs text-gray-500">{accessReviewStatus}</span>}
+          </div>
+          <div className="mt-4">
+            <div className="text-xs uppercase text-gray-500">Recent reviews</div>
+            {accessReviews.length === 0 ? (
+              <p className="mt-2 text-xs text-gray-500">No reviews logged yet.</p>
+            ) : (
+              <ul className="mt-3 space-y-2 text-xs text-gray-600">
+                {accessReviews.map((review) => (
+                  <li key={review.id} className="rounded-lg border border-gray-100 p-3">
+                    <div className="text-xs text-gray-500">
+                      Reviewer {review.reviewerUserId} · {new Date(review.createdAt).toLocaleString()}
+                    </div>
+                    {review.reviewedUserIds?.length ? (
+                      <div className="mt-1 text-xs text-gray-500">
+                        Reviewed: {review.reviewedUserIds.join(", ")}
+                      </div>
+                    ) : null}
+                    {review.notes && <div className="mt-1 text-xs text-gray-500">Notes: {review.notes}</div>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       </section>
 

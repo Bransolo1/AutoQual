@@ -41,7 +41,19 @@ export class AuditService {
   }) {
     const events = await this.list({ workspaceId, entityType, entityId, limit });
     const rows = [
-      ["id", "workspaceId", "actorUserId", "action", "entityType", "entityId", "requestId", "createdAt"],
+      [
+        "id",
+        "workspaceId",
+        "actorUserId",
+        "action",
+        "entityType",
+        "entityId",
+        "requestId",
+        "beforeHash",
+        "afterHash",
+        "integrityHash",
+        "createdAt",
+      ],
       ...events.map((event) => [
         event.id,
         event.workspaceId,
@@ -50,6 +62,9 @@ export class AuditService {
         event.entityType,
         event.entityId,
         event.requestId ?? "",
+        event.beforeHash ?? "",
+        event.afterHash ?? "",
+        event.integrityHash ?? "",
         event.createdAt.toISOString(),
       ]),
     ];

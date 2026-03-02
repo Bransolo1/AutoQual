@@ -9,3 +9,7 @@ export type CreateClipInput = {
   startMs: number;
   endMs: number;
 };
+
+export type UpdateMediaLegalHoldInput = {
+  enabled: boolean;
+};
