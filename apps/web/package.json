@@ -2,7 +2,7 @@
   "name": "@sensehub/web",
   "private": true,
   "dependencies": {
-    "next": "^14.0.0",
+    "next": "^16.1.6",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "video.js": "^8.0.0"
