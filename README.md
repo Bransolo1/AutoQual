@@ -1,3 +1,28 @@
+# Sensehub Auto Qual
+
+Enterprise-grade AI qualitative research platform for moderated interviews, analysis delivery, and evidence-backed insights.
+
+## Quick start (local)
+1. Install dependencies:
+   - `npm install`
+2. Start API + web (requires Postgres/Redis running):
+   - `npm run dev:api`
+   - `npm run dev:web`
+3. Visit:
+   - Web: http://localhost:3000
+   - API: http://localhost:4000/health
+
+## Infra (Docker)
+- Start infra services:
+  - `docker compose -f infra/docker/docker-compose.yml up -d`
+- See `docs/architecture/DEPLOYMENT.md` and `docs/architecture/RUNBOOKS.md` for Windows notes and testing commands.
+
+## Testing
+- API: `npm --workspace apps/api run test`
+- Web: `npm --workspace apps/web run test`
+- Worker: `npm --workspace apps/worker run test`
+- E2E (requires API + web + infra running): `npm --workspace apps/e2e run test`
+
 #
 Sensehub Auto Qual
 
