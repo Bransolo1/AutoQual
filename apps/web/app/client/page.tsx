@@ -1225,8 +1225,8 @@ export default function ClientPortalPage() {
       <section className="mt-6 rounded-2xl bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold">Approved deliverables</h2>
         <ul className="mt-3 space-y-2">
-          {data.approvedDeliverables.map((d, i) => (
-            <li key={i} className="text-sm">
+          {data.approvedDeliverables.map((d) => (
+            <li key={`${d.type}-${d.id}`} className="text-sm">
               <span className="font-medium">{d.type}</span> · {d.id}
             </li>
           ))}

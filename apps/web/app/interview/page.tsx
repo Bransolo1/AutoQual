@@ -52,14 +52,19 @@ export default function InterviewPage() {
     }
   }, []);
 
+  const startedAtRef = useRef(0);
+
   useEffect(() => {
-    if (!recording) return;
-    const startedAt = Date.now() - elapsedSeconds * 1000;
+    if (!recording) {
+      startedAtRef.current = 0;
+      return;
+    }
+    startedAtRef.current = Date.now();
     const timer = window.setInterval(() => {
-      setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+      setElapsedSeconds(Math.floor((Date.now() - startedAtRef.current) / 1000));
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [recording, elapsedSeconds]);
+  }, [recording]);
 
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);

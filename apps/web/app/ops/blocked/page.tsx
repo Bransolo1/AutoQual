@@ -28,6 +28,7 @@ export default function BlockedTasksPage() {
 
   useEffect(() => {
     refreshTasks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
   return (
