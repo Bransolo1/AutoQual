@@ -8,6 +8,7 @@ const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user
 
 type AuditEvent = {
   id: string;
+  actorUserId?: string;
   action: string;
   entityType: string;
   entityId: string;
@@ -21,6 +22,7 @@ export default function AuditLogPage() {
   const [entityId, setEntityId] = useState("");
   const [limit, setLimit] = useState("50");
   const [actionFilter, setActionFilter] = useState("");
+  const [actorFilter, setActorFilter] = useState("");
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [retentionStatus, setRetentionStatus] = useState<string | null>(null);
   const workspaceId = "demo-workspace-id";
@@ -36,10 +38,18 @@ export default function AuditLogPage() {
   }, [entityType, entityId, limit, workspaceId]);
 
   const filteredEvents = useMemo(() => {
-    if (!actionFilter.trim()) return events;
-    const needle = actionFilter.trim().toLowerCase();
-    return events.filter((event) => event.action.toLowerCase().includes(needle));
-  }, [events, actionFilter]);
+    const actionNeedle = actionFilter.trim().toLowerCase();
+    const actorNeedle = actorFilter.trim().toLowerCase();
+    return events.filter((event) => {
+      const actionMatch = actionNeedle
+        ? event.action.toLowerCase().includes(actionNeedle)
+        : true;
+      const actorMatch = actorNeedle
+        ? (event.actorUserId ?? "").toLowerCase().includes(actorNeedle)
+        : true;
+      return actionMatch && actorMatch;
+    });
+  }, [events, actionFilter, actorFilter]);
 
   const securityEvents = useMemo(() => {
     const match = ["token.", "audit.export", "retention.", "auth.", "sso."];
@@ -73,6 +83,12 @@ export default function AuditLogPage() {
           value={actionFilter}
           onChange={(event) => setActionFilter(event.target.value)}
           placeholder="Action (retention.queued)"
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
+        />
+        <input
+          value={actorFilter}
+          onChange={(event) => setActorFilter(event.target.value)}
+          placeholder="Actor (user ID)"
           className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
         />
         <select
@@ -235,6 +251,9 @@ export default function AuditLogPage() {
             <p className="mt-2 text-sm text-gray-600">
               {event.entityType} · {event.entityId}
             </p>
+              {event.actorUserId && (
+                <p className="mt-1 text-xs text-gray-500">Actor: {event.actorUserId}</p>
+              )}
             <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-500">
               {event.entityType === "task" && (
                 <Link href={`/projects?taskId=${event.entityId}`} className="text-brand-600 hover:underline">
