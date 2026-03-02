@@ -31,6 +31,9 @@ export default function AuditLogPage() {
   const [retentionStatus, setRetentionStatus] = useState<string | null>(null);
   const workspaceId = "demo-workspace-id";
   const [exportHistoryStatus, setExportHistoryStatus] = useState<string | null>(null);
+  const [exportActorFilter, setExportActorFilter] = useState("");
+  const [exportFrom, setExportFrom] = useState("");
+  const [exportTo, setExportTo] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams({ workspaceId, limit });
@@ -72,8 +75,20 @@ export default function AuditLogPage() {
   }, [events]);
 
   const exportEvents = useMemo(() => {
-    return events.filter((event) => event.action === "audit.exported");
-  }, [events]);
+    const actorNeedle = exportActorFilter.trim().toLowerCase();
+    const fromMs = exportFrom ? new Date(exportFrom).getTime() : null;
+    const toMs = exportTo ? new Date(exportTo).getTime() + 86400000 - 1 : null;
+    return events.filter((event) => {
+      if (event.action !== "audit.exported") return false;
+      const actorMatch = actorNeedle
+        ? (event.actorUserId ?? "").toLowerCase().includes(actorNeedle)
+        : true;
+      const createdMs = new Date(event.createdAt).getTime();
+      const fromMatch = fromMs !== null ? createdMs >= fromMs : true;
+      const toMatch = toMs !== null ? createdMs <= toMs : true;
+      return actorMatch && fromMatch && toMatch;
+    });
+  }, [events, exportActorFilter, exportFrom, exportTo]);
 
   return (
     <main className="min-h-screen px-8 py-10">
@@ -198,6 +213,26 @@ export default function AuditLogPage() {
           <p className="mt-2 text-xs text-gray-600">
             Recent audit exports stored in object storage.
           </p>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-600">
+            <input
+              value={exportActorFilter}
+              onChange={(event) => setExportActorFilter(event.target.value)}
+              placeholder="Actor filter"
+              className="rounded-lg border border-gray-200 px-2 py-1 text-xs"
+            />
+            <input
+              type="date"
+              value={exportFrom}
+              onChange={(event) => setExportFrom(event.target.value)}
+              className="rounded-lg border border-gray-200 px-2 py-1 text-xs"
+            />
+            <input
+              type="date"
+              value={exportTo}
+              onChange={(event) => setExportTo(event.target.value)}
+              className="rounded-lg border border-gray-200 px-2 py-1 text-xs"
+            />
+          </div>
           {exportEvents.length === 0 ? (
             <p className="mt-3 text-xs text-gray-500">No audit exports found.</p>
           ) : (
