@@ -32,6 +32,7 @@ Use it to align onboarding, procurement, and security reviews.
 - Data retention policy: `docs/trust-center/DATA_RETENTION.md`
 - Access review policy: `docs/trust-center/ACCESS_REVIEWS.md`
 - Secure SDLC policy: `docs/trust-center/SDLC_SECURITY.md`
+- Security program overview: `docs/compliance/SECURITY_PROGRAM.md`
 
 ## Security Contacts
 - Security contact: security@company.test

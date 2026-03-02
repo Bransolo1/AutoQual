@@ -9,6 +9,7 @@
 - [ ] Data classification policy (docs/trust-center/DATA_CLASSIFICATION.md)
 - [ ] Key management & rotation policy (docs/trust-center/KEY_MANAGEMENT.md)
 - [ ] Access review policy (docs/trust-center/ACCESS_REVIEWS.md)
+- [ ] Security program overview (docs/compliance/SECURITY_PROGRAM.md)
 
 ## Availability
 - [ ] Health checks and uptime monitoring
@@ -39,6 +40,7 @@
 - [ ] Threat model (docs/threat-model/README.md)
 - [ ] Architecture overview (docs/architecture/OVERVIEW.md)
 - [ ] Deployment guide (docs/architecture/DEPLOYMENT.md)
+- [ ] Security program overview (docs/compliance/SECURITY_PROGRAM.md)
 - [ ] Data Processing Addendum (docs/trust-center/DPA.md)
 - [ ] Subprocessor list (docs/trust-center/SUBPROCESSORS.md)
 - [ ] Penetration test summary (docs/trust-center/PEN_TEST_SUMMARY.md)

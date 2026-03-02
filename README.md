@@ -30,6 +30,7 @@ Enterprise-grade AI qualitative research platform for moderated interviews, anal
 - BCP/DR plan: `docs/architecture/BCP_DR.md`
 - Incident response policy: `docs/trust-center/INCIDENT_RESPONSE.md`
 - Secure SDLC policy: `docs/trust-center/SDLC_SECURITY.md`
+- Security program overview: `docs/compliance/SECURITY_PROGRAM.md`
 
 #
 Sensehub Auto Qual
