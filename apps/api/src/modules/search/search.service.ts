@@ -173,13 +173,27 @@ export class SearchService {
       });
       const data = await res.json();
       const hits = data?.hits?.hits ?? [];
-      return {
-        indexed: true,
-        results: hits.map((hit: { _source?: Record<string, unknown> }) => hit._source ?? {}),
-      };
-    } catch (error) {
-      return { results: [], indexed: false, reason: "search_failed", error: String(error) };
+      if (hits.length > 0) {
+        return {
+          indexed: true,
+          results: hits.map((hit: { _source?: Record<string, unknown> }) => hit._source ?? {}),
+        };
+      }
+    } catch {
+      // fall through to Prisma
     }
+    const results = await this.prisma.insight.findMany({
+      where: {
+        studyId: input.studyId ?? undefined,
+        OR: [
+          { statement: { contains: query, mode: "insensitive" } },
+          { businessImplication: { contains: query, mode: "insensitive" } },
+          { tags: { has: query } },
+        ],
+      },
+      take: limit,
+    });
+    return { results, indexed: false };
   }
 
   async searchInsightsWithEvidence(input: SearchInsightsInput) {

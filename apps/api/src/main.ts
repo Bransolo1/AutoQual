@@ -21,7 +21,14 @@ function bootstrap() {
       origin: corsOrigins.length ? corsOrigins : true,
       credentials: true,
     });
-    app.use(helmet());
+    app.use(helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          frameAncestors: ["'self'", "http://localhost:3000"],
+        },
+      },
+    }));
     app.use((req: Request, res: Response, next: NextFunction) => {
       const requestId = req.headers["x-request-id"]?.toString() ?? randomUUID();
       res.setHeader("x-request-id", requestId);
