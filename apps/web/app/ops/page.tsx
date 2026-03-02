@@ -44,6 +44,18 @@ type Dashboard = {
   }[];
 };
 
+type SecurityAlert = {
+  id: string;
+  action: string;
+  actorUserId: string;
+  entityType: string;
+  entityId: string;
+  createdAt: string;
+  metadata: Record<string, unknown>;
+  severity: "info" | "warning" | "critical";
+  summary: string;
+};
+
 export default function OpsDashboardPage() {
   const [data, setData] = useState<Dashboard | null>(null);
   const [blockedFilter, setBlockedFilter] = useState("");
@@ -63,6 +75,8 @@ export default function OpsDashboardPage() {
   const [alertSummary, setAlertSummary] = useState<{ lowActivation: number; lowFeedback: number } | null>(null);
   const [ssoConfig, setSsoConfig] = useState<{ enabled: boolean; issuerUrl: string; clientId: string } | null>(null);
   const [secretsHealth, setSecretsHealth] = useState<{ provider: string; status: string; message: string } | null>(null);
+  const [securityAlerts, setSecurityAlerts] = useState<SecurityAlert[]>([]);
+  const [alertsRefreshStatus, setAlertsRefreshStatus] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`${API_BASE}/ops/dashboard?workspaceId=demo-workspace-id`, { headers: HEADERS })
@@ -92,6 +106,9 @@ export default function OpsDashboardPage() {
     fetch(`${API_BASE}/secrets/health`, { headers: HEADERS })
       .then((r) => (r.ok ? r.json() : null))
       .then(setSecretsHealth);
+    fetch(`${API_BASE}/ops/security-alerts?workspaceId=demo-workspace-id&limit=8`, { headers: HEADERS })
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setSecurityAlerts);
   }, []);
 
   if (!data) return <main className="p-8">Loading…</main>;
@@ -194,6 +211,62 @@ export default function OpsDashboardPage() {
                 <Link href={`/projects/${p.id}`} className="text-brand-600 hover:underline">{p.name}</Link>
               </li>
             ))}
+          </ul>
+        </div>
+        <div className="rounded-2xl bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-500">Security alerts</h2>
+            <div className="flex items-center gap-3 text-xs">
+              <button
+                type="button"
+                onClick={async () => {
+                  setAlertsRefreshStatus("Scanning...");
+                  const res = await fetch(`${API_BASE}/ops/alerts/refresh?workspaceId=demo-workspace-id`, {
+                    method: "POST",
+                    headers: HEADERS,
+                  });
+                  setAlertsRefreshStatus(res.ok ? "Alerts refreshed." : "Alert refresh failed.");
+                  const updated = res.ok ? await fetch(`${API_BASE}/ops/security-alerts?workspaceId=demo-workspace-id&limit=8`, { headers: HEADERS }) : null;
+                  if (updated?.ok) {
+                    setSecurityAlerts(await updated.json());
+                  }
+                }}
+                className="rounded-full border border-brand-500 px-3 py-1 text-[11px] font-medium text-brand-600"
+              >
+                Run alert scan
+              </button>
+              <Link href="/audit" className="text-brand-600 hover:underline">View audit log</Link>
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-gray-500">
+            Latest security-sensitive events across the workspace.
+          </p>
+          {alertsRefreshStatus && <p className="mt-2 text-[11px] text-gray-500">{alertsRefreshStatus}</p>}
+          <ul className="mt-3 space-y-2 text-sm">
+            {securityAlerts.map((alert) => (
+              <li key={alert.id} className="rounded-lg border border-gray-100 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs uppercase text-gray-500">{alert.summary}</span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                      alert.severity === "critical"
+                        ? "bg-rose-100 text-rose-700"
+                        : alert.severity === "warning"
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {alert.severity}
+                  </span>
+                </div>
+                <div className="mt-2 text-xs text-gray-500">
+                  {new Date(alert.createdAt).toLocaleString()} · {alert.action} · Actor {alert.actorUserId}
+                </div>
+              </li>
+            ))}
+            {securityAlerts.length === 0 && (
+              <li className="text-xs text-gray-500">No recent security alerts.</li>
+            )}
           </ul>
         </div>
         <div className="rounded-2xl bg-white p-6 shadow-sm">

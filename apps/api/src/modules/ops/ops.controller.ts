@@ -103,4 +103,19 @@ export class OpsController {
   ) {
     return this.opsService.refreshDashboard(workspaceId, studyId);
   }
+
+  @Post("alerts/refresh")
+  @Roles("admin")
+  refreshAlerts(@Query("workspaceId") workspaceId: string) {
+    return this.opsService.refreshAlerts(workspaceId);
+  }
+
+  @Get("security-alerts")
+  @Roles("admin")
+  listSecurityAlerts(
+    @Query("workspaceId") workspaceId: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.opsService.getSecurityAlerts(workspaceId, limit ? Number(limit) : undefined);
+  }
 }

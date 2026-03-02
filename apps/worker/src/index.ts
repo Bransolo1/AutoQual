@@ -13,6 +13,7 @@ const API_HEADERS = {
   "Content-Type": "application/json",
   "x-workspace-id": "demo-workspace-id",
   "x-user-id": "system",
+  "x-role": "admin",
 };
 
 export const redactPII = (text: string) => {
@@ -174,6 +175,23 @@ export async function handlePipelineJob(
     const payload = res.ok ? await res.json().catch(() => ({})) : {};
     return { processed: res.ok, workspaceId, retentionDays, archived: payload.archived ?? 0 };
   }
+  if (job.name === "audit.retention") {
+    const { workspaceId } = job.data as { workspaceId: string };
+    const workspaceRes = await fetch(`${API_BASE}/workspaces/${workspaceId}`, { headers: API_HEADERS });
+    const workspace = workspaceRes.ok
+      ? ((await workspaceRes.json()) as { auditRetentionEnabled?: boolean; auditRetentionDays?: number })
+      : null;
+    if (!workspace?.auditRetentionEnabled) {
+      return { processed: true, workspaceId, skipped: "audit_retention_disabled" };
+    }
+    const retentionDays = workspace?.auditRetentionDays ?? 365;
+    const res = await fetch(`${API_BASE}/audit/retention-run?workspaceId=${workspaceId}&retentionDays=${retentionDays}`, {
+      method: "POST",
+      headers: API_HEADERS,
+    });
+    const payload = res.ok ? await res.json().catch(() => ({})) : {};
+    return { processed: res.ok, workspaceId, retentionDays, deleted: payload.deleted ?? 0 };
+  }
   if (job.name === "dashboard.refresh") {
     const { workspaceId, studyId } = job.data as { workspaceId: string; studyId?: string };
     const res = await fetch(
@@ -191,6 +209,15 @@ export async function handlePipelineJob(
       headers: API_HEADERS,
     });
     return { processed: res.ok };
+  }
+  if (job.name === "alerts.refresh") {
+    const { workspaceId } = job.data as { workspaceId: string };
+    const res = await fetch(`${API_BASE}/ops/alerts/refresh?workspaceId=${workspaceId}`, {
+      method: "POST",
+      headers: API_HEADERS,
+    });
+    const payload = res.ok ? await res.json().catch(() => ({})) : {};
+    return { processed: res.ok, workspaceId, ...payload };
   }
   return { status: "ignored", payload: job.data };
 }

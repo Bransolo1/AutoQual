@@ -4,3 +4,10 @@ export type CreateAlertInput = {
   severity: "info" | "warning" | "critical";
   payload: Record<string, unknown>;
 };
+
+export type CreateAlertViewInput = {
+  workspaceId: string;
+  name: string;
+  createdByUserId: string;
+  filters: Record<string, unknown>;
+};

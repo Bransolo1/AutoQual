@@ -36,6 +36,7 @@ import { SecretsModule } from "./modules/secrets/secrets.module";
 import { AuthTokensModule } from "./modules/auth-tokens/auth-tokens.module";
 import { PrismaService } from "./prisma/prisma.service";
 import { QueueModule } from "./queue/queue.module";
+import { QueueService } from "./queue/queue.service";
 import { APP_GUARD, Reflector } from "@nestjs/core";
 import { AuthGuard } from "./auth/auth.guard";
 import { WorkspaceGuard } from "./auth/workspace.guard";
@@ -98,15 +99,26 @@ import { envValidationSchema } from "./config/env.validation";
   ]
 })
 export class AppModule implements NestModule, OnModuleInit {
-  constructor(private readonly queueService: QueueService) {}
+  constructor(
+    private readonly queueService: QueueService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(LoggerMiddleware).forRoutes("*");
   }
 
-  onModuleInit() {
+  async onModuleInit() {
     if (process.env.TOKEN_REVOCATION_PURGE_ENABLED === "true") {
-      void this.queueService.addTokenRevocationPurge();
+      await this.queueService.addTokenRevocationPurge();
     }
+    const workspaces = await this.prisma.workspace.findMany({
+      where: { auditRetentionEnabled: true },
+      select: { id: true },
+    });
+    await Promise.all(workspaces.map((workspace) => this.queueService.addAuditRetentionSchedule(workspace.id)));
+
+    const allWorkspaces = await this.prisma.workspace.findMany({ select: { id: true } });
+    await Promise.all(allWorkspaces.map((workspace) => this.queueService.addAlertsRefreshSchedule(workspace.id)));
   }
 }

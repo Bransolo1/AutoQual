@@ -1,15 +1,23 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
-import { CreateAlertInput } from "./alerts.dto";
+import { CreateAlertInput, CreateAlertViewInput } from "./alerts.dto";
 
 @Injectable()
 export class AlertsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(workspaceId: string) {
+  list(workspaceId: string, filters?: { type?: string; severity?: string; from?: Date; to?: Date; limit?: number }) {
     return this.prisma.alertEvent.findMany({
-      where: { workspaceId },
+      where: {
+        workspaceId,
+        ...(filters?.type ? { type: filters.type } : {}),
+        ...(filters?.severity ? { severity: filters.severity } : {}),
+        ...(filters?.from || filters?.to
+          ? { createdAt: { gte: filters.from ?? undefined, lte: filters.to ?? undefined } }
+          : {}),
+      },
       orderBy: { createdAt: "desc" },
+      take: filters?.limit,
     });
   }
 
@@ -33,5 +41,27 @@ export class AlertsService {
       },
     });
     return alert;
+  }
+
+  listViews(workspaceId: string) {
+    return this.prisma.alertView.findMany({
+      where: { workspaceId },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async createView(input: CreateAlertViewInput) {
+    return this.prisma.alertView.create({
+      data: {
+        workspaceId: input.workspaceId,
+        name: input.name,
+        createdByUserId: input.createdByUserId,
+        filters: input.filters,
+      },
+    });
+  }
+
+  async deleteView(viewId: string) {
+    return this.prisma.alertView.delete({ where: { id: viewId } });
   }
 }

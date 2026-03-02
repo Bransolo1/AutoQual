@@ -8,6 +8,8 @@ const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user
 type WorkspaceSettings = {
   id: string;
   retentionDays: number;
+  auditRetentionEnabled?: boolean;
+  auditRetentionDays?: number;
   piiRedactionEnabled: boolean;
   encryptionAtRest: boolean;
   activationViewThreshold?: number;
@@ -90,9 +92,10 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    setAuditRetentionEnabled(false);
-    setAuditRetentionDays("365");
-  }, []);
+    if (!settings) return;
+    setAuditRetentionEnabled(settings.auditRetentionEnabled ?? false);
+    setAuditRetentionDays(String(settings.auditRetentionDays ?? 365));
+  }, [settings]);
 
   const updateSettings = async () => {
     if (!settings) return;
@@ -102,6 +105,8 @@ export default function SettingsPage() {
       headers: { ...HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({
         retentionDays: settings.retentionDays,
+        auditRetentionEnabled,
+        auditRetentionDays: Number(auditRetentionDays),
         piiRedactionEnabled: settings.piiRedactionEnabled,
         encryptionAtRest: settings.encryptionAtRest,
         integrations: settings.integrations ?? null,
