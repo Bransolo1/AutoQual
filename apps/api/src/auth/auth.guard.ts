@@ -7,6 +7,7 @@ import {
 import { Reflector } from "@nestjs/core";
 import { Request } from "express";
 import { IS_PUBLIC_KEY } from "./public.decorator";
+import { PrismaService } from "../prisma/prisma.service";
 
 export type JwtPayload = {
   sub: string;
@@ -15,13 +16,14 @@ export type JwtPayload = {
   email?: string;
   iss?: string;
   aud?: string | string[];
+  jti?: string;
 };
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(private reflector: Reflector, private prisma: PrismaService) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -52,6 +54,7 @@ export class AuthGuard implements CanActivate {
       const payload = this.decodeJwt(bearer) as JwtPayload;
       this.assertIssuer(payload);
       this.assertAudience(payload);
+      await this.assertJti(payload);
       if (!payload.sub || !payload.workspaceId) {
         throw new UnauthorizedException("Invalid token payload");
       }
@@ -95,6 +98,22 @@ export class AuthGuard implements CanActivate {
     }
     if (aud !== expectedAudience) {
       throw new UnauthorizedException("Invalid token audience");
+    }
+  }
+
+  private async assertJti(payload: JwtPayload) {
+    const requireJti = process.env.JWT_REQUIRE_JTI === "true";
+    if (requireJti && !payload.jti) {
+      throw new UnauthorizedException("Missing token id");
+    }
+    if (!payload.jti) return;
+    const revoked = await this.prisma.revokedToken.findUnique({
+      where: { jti: payload.jti },
+      select: { expiresAt: true },
+    });
+    if (!revoked) return;
+    if (revoked.expiresAt.getTime() > Date.now()) {
+      throw new UnauthorizedException("Token revoked");
     }
   }
 }

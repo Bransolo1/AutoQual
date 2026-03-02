@@ -24,6 +24,7 @@ API errors are returned as structured JSON with a `requestId` for correlation ac
 
 ### Auth token validation
 If `JWT_ISSUER` and `JWT_AUDIENCE` are set, the API will validate incoming JWT claims for enterprise SSO/OIDC compatibility.
+Set `JWT_REQUIRE_JTI=true` to enforce token revocation checks.
 
 ### Audit export & retention
 - `GET /audit/export.csv` exports audit logs.
@@ -33,6 +34,9 @@ If `JWT_ISSUER` and `JWT_AUDIENCE` are set, the API will validate incoming JWT c
 ### SSO/OIDC placeholder
 SSO configuration is exposed at `GET /auth/sso/config`. The callback endpoint is stubbed at
 `POST /auth/sso/callback` for integration with your IdP.
+
+### Token revocation
+Admins can revoke JWTs by JTI using `POST /auth/tokens/revoke`.
 
 ### Secrets management placeholder
 Set `SECRETS_PROVIDER=env` (default) or `vault` to use external secrets in production.

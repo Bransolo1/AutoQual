@@ -87,6 +87,21 @@ model RoleAssignment {
   user      User     @relation(fields: [userId], references: [id])
 }
 
+model RevokedToken {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  userId          String?
+  jti             String   @unique
+  revokedReason   String?
+  revokedByUserId String
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  workspace       Workspace @relation(fields: [workspaceId], references: [id])
+  user            User?    @relation(fields: [userId], references: [id])
+
+  @@index([expiresAt])
+}
+
 model Project {
   id                 String        @id @default(cuid())
   workspaceId        String

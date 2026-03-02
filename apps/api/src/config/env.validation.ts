@@ -20,6 +20,7 @@ export const envValidationSchema = Joi.object({
   CORS_ORIGIN: Joi.string().required(),
   JWT_ISSUER: Joi.string().uri().optional(),
   JWT_AUDIENCE: Joi.string().optional(),
+  JWT_REQUIRE_JTI: Joi.boolean().default(false),
   AUDIT_RETENTION_ALLOW: Joi.boolean().default(false),
   AUDIT_RETENTION_DAYS: Joi.number().default(365),
   SSO_ENABLED: Joi.boolean().default(false),

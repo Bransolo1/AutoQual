@@ -33,6 +33,7 @@ import { ActivationMetricsModule } from "./modules/activation-metrics/activation
 import { AlertsModule } from "./modules/alerts/alerts.module";
 import { SsoModule } from "./modules/sso/sso.module";
 import { SecretsModule } from "./modules/secrets/secrets.module";
+import { AuthTokensModule } from "./modules/auth-tokens/auth-tokens.module";
 import { PrismaService } from "./prisma/prisma.service";
 import { QueueModule } from "./queue/queue.module";
 import { APP_GUARD, Reflector } from "@nestjs/core";
@@ -84,6 +85,7 @@ import { envValidationSchema } from "./config/env.validation";
     AlertsModule,
     SsoModule,
     SecretsModule,
+    AuthTokensModule,
   ],
   providers: [
     PrismaService,
