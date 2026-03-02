@@ -52,6 +52,7 @@ export default function SettingsPage() {
   const [revokeReason, setRevokeReason] = useState("");
   const [revokeStatus, setRevokeStatus] = useState<string | null>(null);
   const [ssoConfig, setSsoConfig] = useState<{ enabled: boolean; issuerUrl: string; clientId: string; redirectUri: string } | null>(null);
+  const [secretsHealth, setSecretsHealth] = useState<{ provider: string; status: string; message: string } | null>(null);
 
   const loadSettings = async () => {
     const res = await fetch(`${API_BASE}/workspaces/demo-workspace-id`, { headers: HEADERS });
@@ -80,6 +81,9 @@ export default function SettingsPage() {
     fetch(`${API_BASE}/auth/sso/config`, { headers: HEADERS })
       .then((r) => (r.ok ? r.json() : null))
       .then(setSsoConfig);
+    fetch(`${API_BASE}/secrets/health`, { headers: HEADERS })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setSecretsHealth);
   }, []);
 
   const updateSettings = async () => {
@@ -543,6 +547,22 @@ export default function SettingsPage() {
           <div className="text-xs text-gray-500">Issuer: {ssoConfig?.issuerUrl || "Not set"}</div>
           <div className="text-xs text-gray-500">Client ID: {ssoConfig?.clientId || "Not set"}</div>
           <div className="text-xs text-gray-500">Redirect URI: {ssoConfig?.redirectUri || "Not set"}</div>
+        </div>
+      </section>
+
+      <section className="mt-8 max-w-xl rounded-2xl bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold">Secrets provider health</h2>
+        <p className="mt-2 text-sm text-gray-600">
+          Current secrets backend and integration status.
+        </p>
+        <div className="mt-4 space-y-2 text-sm text-gray-600">
+          <div className="flex items-center justify-between">
+            <span>Provider</span>
+            <span className="text-xs text-gray-500">{secretsHealth?.provider ?? "n/a"}</span>
+          </div>
+          <div className="text-xs text-gray-500">
+            {secretsHealth?.status ?? "unknown"} · {secretsHealth?.message ?? "No status"}
+          </div>
         </div>
       </section>
     </main>
