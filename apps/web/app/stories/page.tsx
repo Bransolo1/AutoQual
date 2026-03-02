@@ -103,7 +103,7 @@ export default function StoriesPage() {
     <main className="min-h-screen px-8 py-10">
       <h1 className="text-2xl font-semibold">Stories</h1>
       <p className="mt-2 text-sm text-gray-600">
-        Build evidence-backed stories, showreels, and recap artifacts for stakeholders.
+        Create LLM-generated stories, showreels, and recap artifacts from your research insights.
       </p>
 
       <section className="mt-6 max-w-2xl rounded-2xl bg-white p-6 shadow-sm">

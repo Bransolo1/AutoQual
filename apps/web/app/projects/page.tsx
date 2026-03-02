@@ -105,7 +105,7 @@ export default function ProjectsPage() {
     <main className="min-h-screen px-8 py-10">
       <h1 className="text-2xl font-semibold">Projects</h1>
       <p className="mt-2 text-sm text-gray-600">
-        Track studies, milestones, and approvals in one delivery pipeline.
+        Organize your qualitative research studies, track progress, and manage approvals.
       </p>
       <div className="mt-4 flex flex-wrap gap-3 rounded-2xl bg-white p-4 shadow-sm">
         <input
