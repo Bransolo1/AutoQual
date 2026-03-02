@@ -1,0 +1,11 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sensehub-ingress
+spec:
+  tls:
+    - hosts:
+        - yourdomain.com
+      secretName: sensehub-prod-tls
+  rules:
+    - host: yourdomain.com

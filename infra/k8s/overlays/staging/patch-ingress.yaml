@@ -1,0 +1,11 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sensehub-ingress
+spec:
+  tls:
+    - hosts:
+        - staging.yourdomain.com
+      secretName: sensehub-staging-tls
+  rules:
+    - host: staging.yourdomain.com
