@@ -87,6 +87,11 @@ export class AuditService {
     return { storageKey, url };
   }
 
+  async getExportUrl(storageKey: string) {
+    const url = await getSignedMediaUrl(storageKey);
+    return { storageKey, url };
+  }
+
   async applyRetention(workspaceId: string, retentionDays?: number) {
     const workspace = await this.prisma.workspace.findUnique({
       where: { id: workspaceId },

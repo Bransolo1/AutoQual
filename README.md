@@ -29,6 +29,7 @@ Set `JWT_REQUIRE_JTI=true` to enforce token revocation checks.
 ### Audit export & retention
 - `GET /audit/export.csv` exports audit logs.
 - `POST /audit/export` uploads audit logs to object storage and returns a signed URL.
+- `GET /audit/export-url` returns a signed URL for a stored audit export.
 - `POST /audit/retention-run` deletes old audit events when `AUDIT_RETENTION_ALLOW=true`.
 
 ### SSO/OIDC placeholder

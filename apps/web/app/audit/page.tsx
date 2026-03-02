@@ -24,6 +24,7 @@ export default function AuditLogPage() {
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [retentionStatus, setRetentionStatus] = useState<string | null>(null);
   const workspaceId = "demo-workspace-id";
+  const [exportHistoryStatus, setExportHistoryStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams({ workspaceId, limit });
@@ -45,6 +46,10 @@ export default function AuditLogPage() {
     return events.filter((event) =>
       match.some((prefix) => event.action.toLowerCase().startsWith(prefix)),
     );
+  }, [events]);
+
+  const exportEvents = useMemo(() => {
+    return events.filter((event) => event.action === "audit.exported");
   }, [events]);
 
   return (
@@ -141,6 +146,56 @@ export default function AuditLogPage() {
         {retentionStatus && <span className="text-xs text-gray-500">{retentionStatus}</span>}
       </div>
       <div className="mt-6 grid gap-4">
+        <section className="rounded-2xl bg-white p-5 shadow-sm">
+          <h2 className="text-sm font-semibold text-gray-500">Audit export history</h2>
+          <p className="mt-2 text-xs text-gray-600">
+            Recent audit exports stored in object storage.
+          </p>
+          {exportEvents.length === 0 ? (
+            <p className="mt-3 text-xs text-gray-500">No audit exports found.</p>
+          ) : (
+            <ul className="mt-3 space-y-2 text-sm text-gray-700">
+              {exportEvents.slice(0, 6).map((event) => (
+                <li key={event.id} className="rounded-lg border border-gray-100 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase text-brand-600">Exported</span>
+                    <span className="text-xs text-gray-400">
+                      {new Date(event.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-xs text-gray-600">{event.entityId}</div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setExportHistoryStatus("Loading export URL...");
+                      const res = await fetch(
+                        `${API_BASE}/audit/export-url?storageKey=${encodeURIComponent(event.entityId)}`,
+                        { headers: HEADERS },
+                      );
+                      if (!res.ok) {
+                        setExportHistoryStatus("Failed to load export URL.");
+                        return;
+                      }
+                      const payload = await res.json();
+                      if (payload?.url) {
+                        window.open(payload.url as string, "_blank");
+                        setExportHistoryStatus("Opened export.");
+                      } else {
+                        setExportHistoryStatus("Export URL missing.");
+                      }
+                    }}
+                    className="mt-2 text-xs text-brand-600 hover:underline"
+                  >
+                    Open export →
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {exportHistoryStatus && (
+            <p className="mt-2 text-xs text-gray-500">{exportHistoryStatus}</p>
+          )}
+        </section>
         <section className="rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="text-sm font-semibold text-gray-500">Security events</h2>
           <p className="mt-2 text-xs text-gray-600">

@@ -61,6 +61,12 @@ export class AuditController {
     });
   }
 
+  @Get("export-url")
+  @Roles("admin")
+  getExportUrl(@Query("storageKey") storageKey: string) {
+    return this.auditService.getExportUrl(storageKey);
+  }
+
   @Post("retention-run")
   @Roles("admin")
   applyRetention(
