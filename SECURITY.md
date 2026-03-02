@@ -34,3 +34,10 @@
 - TLS for all network traffic
 - Object storage encryption at rest
 - Database encryption at rest
+
+## Vulnerability Disclosure
+If you discover a security issue, please report it responsibly.
+
+1. Email: security@sensehub.ai (or your internal security alias)
+2. Provide a clear description, steps to reproduce, and impact
+3. Do not publicly disclose until coordinated with the team
