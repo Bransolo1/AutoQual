@@ -185,6 +185,13 @@ export async function handlePipelineJob(
     const payload = res.ok ? await res.json().catch(() => ({})) : {};
     return { processed: res.ok, workspaceId, studyId, ...payload };
   }
+  if (job.name === "token.revocation.purge") {
+    const res = await fetch(`${API_BASE}/auth/tokens/purge`, {
+      method: "POST",
+      headers: API_HEADERS,
+    });
+    return { processed: res.ok };
+  }
   return { status: "ignored", payload: job.data };
 }
 

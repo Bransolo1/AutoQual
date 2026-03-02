@@ -12,4 +12,10 @@ export class AuthTokensController {
   revoke(@Body() body: RevokeTokenInput) {
     return this.authTokensService.revoke(body);
   }
+
+  @Post("purge")
+  @Roles("admin")
+  purge() {
+    return this.authTokensService.purgeExpired();
+  }
 }

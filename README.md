@@ -37,6 +37,7 @@ SSO configuration is exposed at `GET /auth/sso/config`. The callback endpoint is
 
 ### Token revocation
 Admins can revoke JWTs by JTI using `POST /auth/tokens/revoke`.
+Expired token revocations can be purged via `POST /auth/tokens/purge`.
 
 ### Secrets management placeholder
 Set `SECRETS_PROVIDER=env` (default) or `vault` to use external secrets in production.
