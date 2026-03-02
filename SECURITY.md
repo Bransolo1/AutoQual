@@ -1,3 +1,35 @@
+# Security Policy
+
+## Supported versions
+Security fixes apply to the `main` branch and the latest release artifacts.
+
+## Reporting a vulnerability
+Please report security issues privately to the maintainers. If you do not have a direct contact,
+open a GitHub security advisory or use repository email if provided.
+
+Include:
+- A clear description of the issue
+- Steps to reproduce
+- Impact assessment
+- Suggested remediation (if any)
+
+## Operational security notes
+This codebase includes:
+- Role-based access control and workspace isolation
+- Audit logging and retention controls
+- Rate limiting and security headers on the API
+- Token revocation and revocation purge job
+
+Operators should:
+- Run the API behind TLS
+- Rotate secrets regularly
+- Enable database backups and retention policies
+- Monitor audit logs for anomalies
+
+## Incident response (summary)
+1. Contain: revoke exposed tokens and rotate secrets.
+2. Eradicate: patch the vulnerability and deploy.
+3. Recover: verify services and run post-incident review.
 # Security Overview
 
 ## Threat Model

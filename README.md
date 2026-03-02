@@ -23,6 +23,10 @@ Enterprise-grade AI qualitative research platform for moderated interviews, anal
 - Worker: `npm --workspace apps/worker run test`
 - E2E (requires API + web + infra running): `npm --workspace apps/e2e run test`
 
+## Security & privacy
+- `SECURITY.md`
+- `PRIVACY.md`
+
 #
 Sensehub Auto Qual
 
