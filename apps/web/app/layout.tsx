@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { ReactNode } from "react";
+import { API_BASE, HEADERS } from "@/lib/api";
 
 export const metadata = {
   title: "Sensehub Auto Qual",
@@ -7,12 +8,11 @@ export const metadata = {
 };
 
 async function getUnreadCount() {
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
   try {
     const response = await fetch(
       `${API_BASE}/notifications?userId=demo-user&unread=true&limit=1`,
       {
-        headers: { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" },
+        headers: HEADERS,
         cache: "no-store",
       },
     );
