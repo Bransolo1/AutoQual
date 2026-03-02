@@ -2,6 +2,7 @@
 
 ## Core
 - `GET /health`
+- `GET /health/search`
 - `GET /workspaces/:id`
 - `PATCH /workspaces/:id/settings` (body: retentionDays?, piiRedactionEnabled?, encryptionAtRest?, integrations?, servicesNotes?, activationViewThreshold?, feedbackScoreThreshold?)
 - `GET /trust-center/artifacts` (query: workspaceId)
@@ -154,6 +155,8 @@
 - `GET /auth/sso/config`
 - `GET /auth/sso/login` (query: workspaceId)
 - `POST /auth/sso/callback` (query: code, workspaceId)
+- `POST /auth/sso/refresh` (query: refreshToken, workspaceId)
+- `POST /auth/sso/logout` (query: idToken, postLogoutRedirectUri?)
 - `GET /users` (query: workspaceId)
 - `POST /users/:id/roles` (body: roles[])
 - `GET /access-reviews` (query: workspaceId, limit?)

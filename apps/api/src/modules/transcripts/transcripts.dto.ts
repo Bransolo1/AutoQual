@@ -9,10 +9,21 @@ export type RedactTranscriptInput = {
   redactedContent: string;
   piiDetected: boolean;
   piiMetadata?: Record<string, unknown> | null;
+  redactionOffsets?: Array<{ type: string; start: number; end: number }> | null;
 };
 
 export type DetectPiiInput = {
   locale?: string;
+};
+
+export type CreateTranscriptSpanInput = {
+  startMs: number;
+  endMs: number;
+};
+
+export type UnredactTranscriptInput = {
+  actorUserId?: string;
+  reason?: string;
 };
 
 export type PiiEntity = {

@@ -21,6 +21,11 @@ export class InsightsController {
     return this.insightsService.getTemplates();
   }
 
+  @Get("coverage")
+  coverage(@Query("studyId") studyId: string) {
+    return this.insightsService.getEvidenceCoverage(studyId);
+  }
+
   @Get(":id")
   getById(@Param("id") id: string) {
     return this.insightsService.getById(id);

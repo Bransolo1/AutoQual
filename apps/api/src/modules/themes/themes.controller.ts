@@ -20,4 +20,9 @@ export class ThemesController {
   generate(@Body() input: GenerateThemesInput) {
     return this.themesService.generateThemes(input.studyId);
   }
+
+  @Get("segments")
+  segments(@Query("studyId") studyId: string) {
+    return this.themesService.listSegments(studyId);
+  }
 }

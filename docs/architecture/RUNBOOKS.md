@@ -41,6 +41,7 @@
   - 5xx spike
   - Redis down
   - DB connection failures
+  - OpenSearch health check failures (`GET /health/search`)
   - worker job failures
 
 ## Monitoring stack (local)

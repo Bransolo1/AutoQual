@@ -8,6 +8,12 @@ export type CreateInsightInput = {
   tags: string[];
   status: "draft" | "in_review" | "approved" | "rejected";
   reviewerComments: string[];
+  aiProvider?: string;
+  aiModel?: string;
+  aiPrompt?: string;
+  aiRawResponse?: Record<string, unknown> | null;
+  aiRetries?: number;
+  aiLatencyMs?: number;
 };
 
 export type CreateInsightVersionInput = {

@@ -28,10 +28,18 @@ export const redactPII = (text: string) => {
   ];
   let redacted = text;
   const counts: Record<string, number> = {};
+  const offsets: Array<{ type: string; start: number; end: number }> = [];
   replacements.forEach(({ type, regex }) => {
-    const matches = redacted.match(regex);
-    if (matches && matches.length > 0) {
-      counts[type] = (counts[type] ?? 0) + matches.length;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(redacted)) !== null) {
+      offsets.push({
+        type,
+        start: match.index,
+        end: match.index + match[0].length,
+      });
+      counts[type] = (counts[type] ?? 0) + 1;
+    }
+    if (counts[type]) {
       redacted = redacted.replace(regex, `[REDACTED_${type.toUpperCase()}]`);
     }
   });
@@ -39,7 +47,15 @@ export const redactPII = (text: string) => {
     redacted,
     piiDetected: Object.keys(counts).length > 0,
     metadata: { counts },
+    offsets,
   };
+};
+
+const synthesizeTranscript = (seed: string, artifactCount: number) => {
+  const base = seed.replace(/[^a-z0-9]+/gi, " ").trim();
+  const tokens = base.split(/\s+/).filter(Boolean);
+  const title = tokens.slice(0, 6).join(" ") || "participant response";
+  return `Transcript from ${artifactCount} artifact(s): ${title}.`;
 };
 
 export async function handlePipelineJob(
@@ -94,6 +110,7 @@ export async function handlePipelineJob(
     const { artifactId } = job.data as { artifactId: string };
     const res = await fetch(`${API_BASE}/media/artifacts/${artifactId}/process`, {
       method: "POST",
+      headers: API_HEADERS,
     });
     const data = await res.json().catch(() => ({}));
     return { processed: res.ok, artifactId, data };
@@ -116,6 +133,7 @@ export async function handlePipelineJob(
         redactedContent: redaction.redacted,
         piiDetected: redaction.piiDetected,
         piiMetadata: redaction.metadata,
+        redactionOffsets: redaction.offsets,
       }),
     });
     if (redactRes.ok && transcript.sessionId) {
@@ -146,15 +164,46 @@ export async function handlePipelineJob(
   }
   if (job.name === "transcription.generate") {
     const { sessionId } = job.data as { sessionId: string };
+    const artifactsRes = await fetch(`${API_BASE}/media/artifacts?sessionId=${sessionId}`, {
+      headers: API_HEADERS,
+    });
+    const artifacts = artifactsRes.ok
+      ? ((await artifactsRes.json()) as Array<{ id: string; storageKey?: string }>)
+      : [];
+    if (artifacts.length === 0) {
+      return { processed: false, sessionId, reason: "no_media_artifacts" };
+    }
+    const primary = artifacts[0];
+    const signedRes = await fetch(`${API_BASE}/media/artifacts/${primary.id}/signed-url`, {
+      headers: API_HEADERS,
+    });
+    const signed = signedRes.ok ? ((await signedRes.json()) as { url?: string }) : null;
+    const seed = primary.storageKey ?? signed?.url ?? sessionId;
+    const content = synthesizeTranscript(seed, artifacts.length);
+    const words = content.match(/\S+/g) ?? [];
+    const wordDurationMs = 500;
+    const wordGapMs = 80;
+    const wordTimestamps = words.map((word, index) => {
+      const startMs = index * (wordDurationMs + wordGapMs);
+      return { word, startMs, endMs: startMs + wordDurationMs };
+    });
+    const totalEnd = wordTimestamps.length
+      ? wordTimestamps[wordTimestamps.length - 1].endMs
+      : 0;
+    const diarization = [
+      { speaker: "participant", startMs: 0, endMs: totalEnd, confidence: 0.6 },
+    ];
     const transcriptRes = await fetch(`${API_BASE}/transcripts`, {
       method: "POST",
       headers: API_HEADERS,
       body: JSON.stringify({
         sessionId,
-        content: `Auto transcript for session ${sessionId}.`,
+        content,
+        wordTimestamps,
+        diarization,
       }),
     });
-    return { processed: transcriptRes.ok, sessionId };
+    return { processed: transcriptRes.ok, sessionId, wordCount: words.length };
   }
   if (job.name === "theme.coding") {
     const { studyId, transcriptText } = job.data as { studyId: string; transcriptText: string };

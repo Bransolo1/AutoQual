@@ -7,6 +7,7 @@ type OidcConfig = {
   authorization_endpoint: string;
   token_endpoint: string;
   jwks_uri: string;
+  end_session_endpoint?: string;
 };
 
 @Injectable()
@@ -59,14 +60,7 @@ export class SsoService {
     if (!tokenResponse.id_token) {
       throw new UnauthorizedException("Missing id_token");
     }
-
-    if (!this.jwks) {
-      this.jwks = createRemoteJWKSet(new URL(jwks_uri));
-    }
-    const { payload } = await jwtVerify(tokenResponse.id_token, this.jwks, {
-      issuer,
-      audience: clientId,
-    });
+    const payload = await this.verifyIdToken(tokenResponse.id_token, issuer, clientId, jwks_uri);
 
     const email = payload.email as string | undefined;
     const name = (payload.name as string | undefined) ?? email ?? "SSO User";
@@ -87,8 +81,65 @@ export class SsoService {
     return {
       idToken: tokenResponse.id_token,
       accessToken: tokenResponse.access_token,
+      refreshToken: (tokenResponse as { refresh_token?: string }).refresh_token,
       user,
     };
+  }
+
+  async refreshSession(refreshToken: string, workspaceId: string) {
+    const { token_endpoint, issuer, jwks_uri } = await this.loadOidcConfig();
+    const clientId = process.env.SSO_CLIENT_ID ?? "";
+    const clientSecret = process.env.SSO_CLIENT_SECRET ?? "";
+    const body = new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+      client_id: clientId,
+      client_secret: clientSecret,
+    });
+    const res = await fetch(token_endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
+    if (!res.ok) {
+      throw new UnauthorizedException("SSO refresh failed");
+    }
+    const tokenResponse = (await res.json()) as {
+      id_token?: string;
+      access_token?: string;
+      refresh_token?: string;
+    };
+    if (!tokenResponse.id_token) {
+      throw new UnauthorizedException("Missing id_token");
+    }
+    const payload = await this.verifyIdToken(tokenResponse.id_token, issuer, clientId, jwks_uri);
+    const email = payload.email as string | undefined;
+    const name = (payload.name as string | undefined) ?? email ?? "SSO User";
+    if (!email) {
+      throw new UnauthorizedException("SSO email claim missing");
+    }
+    this.assertAllowedDomain(email);
+    const role = this.resolveRole(payload);
+    await this.upsertUser({ workspaceId, email, name, role });
+
+    return {
+      idToken: tokenResponse.id_token,
+      accessToken: tokenResponse.access_token,
+      refreshToken: tokenResponse.refresh_token ?? refreshToken,
+    };
+  }
+
+  async getLogoutUrl(idToken: string, postLogoutRedirectUri?: string) {
+    const { end_session_endpoint } = await this.loadOidcConfig();
+    if (!end_session_endpoint) {
+      return { status: "unsupported" as const };
+    }
+    const redirectUri = postLogoutRedirectUri || process.env.SSO_POST_LOGOUT_REDIRECT_URI || "";
+    const params = new URLSearchParams({ id_token_hint: idToken });
+    if (redirectUri) {
+      params.set("post_logout_redirect_uri", redirectUri);
+    }
+    return { status: "ok" as const, logoutUrl: `${end_session_endpoint}?${params.toString()}` };
   }
 
   private async loadOidcConfig(): Promise<OidcConfig> {
@@ -114,6 +165,36 @@ export class SsoService {
     const domain = email.split("@")[1]?.toLowerCase();
     if (!domain || !allowed.includes(domain)) {
       throw new ForbiddenException("SSO domain not allowed");
+    }
+  }
+
+  private async verifyIdToken(idToken: string, issuer: string, clientId: string, jwksUri: string) {
+    if (!this.jwks) {
+      this.jwks = createRemoteJWKSet(new URL(jwksUri));
+    }
+    const { payload } = await jwtVerify(idToken, this.jwks, {
+      issuer,
+      audience: clientId,
+    });
+    this.assertMfa(payload);
+    return payload;
+  }
+
+  private assertMfa(payload: Record<string, unknown>) {
+    if (process.env.SSO_REQUIRE_MFA !== "true") return;
+    const claim = process.env.SSO_MFA_CLAIM?.trim();
+    if (claim) {
+      const value = payload[claim];
+      if (!value) {
+        throw new ForbiddenException("SSO MFA required");
+      }
+      return;
+    }
+    const amr = Array.isArray(payload.amr) ? payload.amr.map((item) => String(item).toLowerCase()) : [];
+    const acr = typeof payload.acr === "string" ? payload.acr.toLowerCase() : "";
+    const ok = amr.includes("mfa") || amr.includes("otp") || acr.includes("mfa");
+    if (!ok) {
+      throw new ForbiddenException("SSO MFA required");
     }
   }
 

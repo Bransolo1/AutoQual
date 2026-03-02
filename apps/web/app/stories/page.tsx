@@ -23,6 +23,7 @@ export default function StoriesPage() {
   const [summary, setSummary] = useState(\"\");
   const [content, setContent] = useState(\"\");
   const [status, setStatus] = useState<string | null>(null);
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
 
   const loadStories = async () => {
     const res = await fetch(`${API_BASE}/stories?studyId=${studyId}`, { headers: HEADERS });
@@ -65,6 +66,41 @@ export default function StoriesPage() {
     await loadStories();
   };
 
+  const generateStories = async () => {
+    if (!studyId) {
+      setStatus(\"Study ID is required to generate stories.\");
+      return;
+    }
+    setStatus(\"Generating story set...\");
+    const res = await fetch(`${API_BASE}/stories/generate`, {
+      method: \"POST\",
+      headers: { ...HEADERS, \"Content-Type\": \"application/json\" },
+      body: JSON.stringify({ studyId }),
+    });
+    if (!res.ok) {
+      setStatus(\"Failed to generate stories.\");
+      return;
+    }
+    setStatus(\"Generated story set.\");
+    await loadStories();
+  };
+
+  const exportStory = async (storyId: string, exportType: \"showreel\" | \"podcast\" | \"slide\") => {
+    setExportStatus(`Preparing ${exportType} export...`);
+    const res = await fetch(`${API_BASE}/stories/${storyId}/export/${exportType}`, { headers: HEADERS });
+    if (!res.ok) {
+      setExportStatus(`Failed to export ${exportType}.`);
+      return;
+    }
+    const payload = (await res.json()) as { url?: string };
+    if (payload.url) {
+      window.open(payload.url, \"_blank\");
+      setExportStatus(`${exportType} export ready.`);
+    } else {
+      setExportStatus(\"Export ready without URL.\");
+    }
+  };
+
   return (
     <main className=\"min-h-screen px-8 py-10\">
       <h1 className=\"text-2xl font-semibold\">Stories</h1>
@@ -89,6 +125,7 @@ export default function StoriesPage() {
             <option value=\"article\">Article</option>
             <option value=\"showreel\">Showreel</option>
             <option value=\"podcast\">Podcast</option>
+            <option value=\"slide\">Slide deck</option>
           </select>
           <input
             value={title}
@@ -115,6 +152,13 @@ export default function StoriesPage() {
             className=\"rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white\"
           >
             Create story
+          </button>
+          <button
+            type=\"button\"
+            onClick={generateStories}
+            className=\"rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700\"
+          >
+            Generate story set
           </button>
           {status && <p className=\"text-xs text-gray-500\">{status}</p>}
         </div>
@@ -146,11 +190,33 @@ export default function StoriesPage() {
                   >
                     PDF
                   </a>
+                  <button
+                    type=\"button\"
+                    onClick={() => exportStory(story.id, \"showreel\")}
+                    className=\"text-brand-600 hover:underline\"
+                  >
+                    Showreel export
+                  </button>
+                  <button
+                    type=\"button\"
+                    onClick={() => exportStory(story.id, \"podcast\")}
+                    className=\"text-brand-600 hover:underline\"
+                  >
+                    Podcast export
+                  </button>
+                  <button
+                    type=\"button\"
+                    onClick={() => exportStory(story.id, \"slide\")}
+                    className=\"text-brand-600 hover:underline\"
+                  >
+                    Slide export
+                  </button>
                 </div>
               </li>
             ))}
           </ul>
         )}
+        {exportStatus && <p className=\"mt-3 text-xs text-gray-500\">{exportStatus}</p>}
       </section>
     </main>
   );

@@ -1,8 +1,27 @@
-import { Body, Controller, Get, Param, Post, Query, UseInterceptors, UploadedFile } from "@nestjs/common";
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UploadedFile,
+  UseInterceptors,
+} from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { memoryStorage } from "multer";
 import { MediaService } from "./media.service";
-import { CreateClipInput, CreateMediaArtifactInput, UpdateMediaLegalHoldInput } from "./media.dto";
+import {
+  ChunkPartUrlInput,
+  CompleteChunkUploadInput,
+  CreateClipInput,
+  CreateMediaArtifactInput,
+  InitChunkUploadInput,
+  UpdateMediaLegalHoldInput,
+} from "./media.dto";
 import { Roles } from "../../auth/roles.decorator";
+import { putObject } from "../../common/s3.client";
 
 @Controller("media")
 export class MediaController {
@@ -21,7 +40,7 @@ export class MediaController {
   @Post("upload")
   @UseInterceptors(
     FileInterceptor("file", {
-      dest: "uploads/",
+      storage: memoryStorage(),
       limits: { fileSize: 500 * 1024 * 1024 },
     }),
   )
@@ -30,8 +49,15 @@ export class MediaController {
     @Body() body: { sessionId: string; type?: string },
   ) {
     const sessionId = body.sessionId;
+    if (!sessionId) {
+      throw new BadRequestException("missing_session_id");
+    }
+    if (!file) {
+      throw new BadRequestException("missing_file");
+    }
     const type = body.type ?? "video";
-    const storageKey = file?.path ?? `uploads/${sessionId}/${Date.now()}-file`;
+    const storageKey = `uploads/${sessionId}/${Date.now()}-${file.originalname ?? "file"}`;
+    await putObject(storageKey, file.buffer, file.mimetype);
     return this.mediaService.createArtifact({ sessionId, type, storageKey });
   }
 
@@ -48,20 +74,18 @@ export class MediaController {
   }
 
   @Post("chunk/init")
-  initChunk(@Body() body: { sessionId: string; fileName: string; contentType?: string }) {
-    const uploadId = `chunk-${Date.now()}`;
-    const storageKey = `uploads/${body.sessionId}/${uploadId}-${body.fileName}`;
-    return { uploadId, storageKey };
+  initChunk(@Body() body: InitChunkUploadInput) {
+    return this.mediaService.initChunkUpload(body);
   }
 
   @Post("chunk/part")
-  uploadChunkPart(@Body() body: { uploadId: string; partNumber: number; etag: string }) {
-    return { recorded: true, ...body };
+  uploadChunkPart(@Body() body: ChunkPartUrlInput) {
+    return this.mediaService.getChunkPartUrl(body);
   }
 
   @Post("chunk/complete")
-  completeChunk(@Body() body: { uploadId: string; storageKey: string }) {
-    return { completed: true, ...body };
+  completeChunk(@Body() body: CompleteChunkUploadInput) {
+    return this.mediaService.completeChunkUpload(body);
   }
 
   @Post("multipart/init")

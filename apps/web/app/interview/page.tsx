@@ -13,12 +13,14 @@ export default function InterviewPage() {
   const previewRef = useRef<HTMLVideoElement | null>(null);
   const [recording, setRecording] = useState(false);
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
+  const [captureMode, setCaptureMode] = useState<"video" | "audio">("video");
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [deviceReady, setDeviceReady] = useState(false);
   const [deviceStatus, setDeviceStatus] = useState<string | null>(null);
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [uploadUrl, setUploadUrl] = useState<string | null>(null);
+  const [uploadStorageKey, setUploadStorageKey] = useState<string | null>(null);
   const [multipart, setMultipart] = useState<{ uploadId: string; storageKey: string } | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
@@ -71,7 +73,10 @@ export default function InterviewPage() {
     setDeviceStatus("Checking camera and microphone...");
     setPermissionError(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: captureMode === "video",
+        audio: true,
+      });
       stream.getTracks().forEach((track) => track.stop());
       setDeviceReady(true);
       setDeviceStatus("Devices ready. You can start the interview.");
@@ -91,9 +96,12 @@ export default function InterviewPage() {
       setPermissionError("Run the device check before recording.");
       return;
     }
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: captureMode === "video",
+      audio: true,
+    });
     if (previewRef.current) {
-      previewRef.current.srcObject = stream;
+      previewRef.current.srcObject = captureMode === "video" ? stream : null;
     }
     const recorder = new MediaRecorder(stream);
     recorderRef.current = recorder;
@@ -102,7 +110,9 @@ export default function InterviewPage() {
       if (event.data.size > 0) chunksRef.current.push(event.data);
     };
     recorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: "video/webm" });
+      const blob = new Blob(chunksRef.current, {
+        type: captureMode === "video" ? "video/webm" : "audio/webm",
+      });
       lastBlobRef.current = blob;
       setRecordedUrl(URL.createObjectURL(blob));
       stream.getTracks().forEach((t) => t.stop());
@@ -119,26 +129,32 @@ export default function InterviewPage() {
   };
 
   const requestUploadUrl = async () => {
-    const storageKey = `uploads/demo-session/${Date.now()}.webm`;
+    const sessionId = sessionInfo?.sessionId ?? "demo-session";
+    const extension = captureMode === "video" ? "webm" : "webm";
+    const storageKey = `uploads/${sessionId}/${Date.now()}.${extension}`;
     const res = await fetch(`${API_BASE}/media/upload-url`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...HEADERS },
-      body: JSON.stringify({ storageKey, contentType: "video/webm" }),
+      body: JSON.stringify({
+        storageKey,
+        contentType: captureMode === "video" ? "video/webm" : "audio/webm",
+      }),
     });
     const data = await res.json();
     setUploadUrl(data.url);
+    setUploadStorageKey(storageKey);
     setUploadStatus("ready");
     setUploadProgress(0);
   };
 
   const uploadRecording = async () => {
-    if (!uploadUrl || !lastBlobRef.current) return;
+    if (!uploadUrl || !lastBlobRef.current || !uploadStorageKey) return;
     setUploadStatus("uploading");
     setUploadProgress(0);
-    await new Promise<void>((resolve, reject) => {
+    const success = await new Promise<boolean>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open("PUT", uploadUrl, true);
-      xhr.setRequestHeader("Content-Type", "video/webm");
+      xhr.setRequestHeader("Content-Type", captureMode === "video" ? "video/webm" : "audio/webm");
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
           setUploadProgress(Math.round((event.loaded / event.total) * 100));
@@ -146,8 +162,9 @@ export default function InterviewPage() {
       };
       xhr.onload = () => {
         setUploadProgress(100);
-        setUploadStatus(xhr.status >= 200 && xhr.status < 300 ? "done" : "failed");
-        resolve();
+        const ok = xhr.status >= 200 && xhr.status < 300;
+        setUploadStatus(ok ? "done" : "failed");
+        resolve(ok);
       };
       xhr.onerror = () => {
         setUploadStatus("failed");
@@ -155,14 +172,30 @@ export default function InterviewPage() {
       };
       xhr.send(lastBlobRef.current as Blob);
     });
+    if (success) {
+      const sessionId = sessionInfo?.sessionId ?? "demo-session";
+      await fetch(`${API_BASE}/media/artifacts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...HEADERS },
+        body: JSON.stringify({
+          sessionId,
+          type: captureMode,
+          storageKey: uploadStorageKey,
+        }),
+      });
+    }
   };
 
   const startMultipart = async () => {
-    const storageKey = `uploads/demo-session/${Date.now()}-multipart.webm`;
+    const sessionId = sessionInfo?.sessionId ?? "demo-session";
+    const storageKey = `uploads/${sessionId}/${Date.now()}-multipart.webm`;
     const res = await fetch(`${API_BASE}/media/multipart/init`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...HEADERS },
-      body: JSON.stringify({ storageKey, contentType: "video/webm" }),
+      body: JSON.stringify({
+        storageKey,
+        contentType: captureMode === "video" ? "video/webm" : "audio/webm",
+      }),
     });
     const data = await res.json();
     setMultipart({ uploadId: data.uploadId, storageKey });
@@ -223,8 +256,8 @@ export default function InterviewPage() {
         storageKey: multipart.storageKey,
         uploadId: multipart.uploadId,
         parts,
-        sessionId: "demo-session",
-        type: "video",
+        sessionId: sessionInfo?.sessionId ?? "demo-session",
+        type: captureMode,
       }),
     });
     setMultipartStatus("done");
@@ -240,8 +273,8 @@ export default function InterviewPage() {
         storageKey: multipart.storageKey,
         uploadId: multipart.uploadId,
         parts: multipartParts,
-        sessionId: "demo-session",
-        type: "video",
+        sessionId: sessionInfo?.sessionId ?? "demo-session",
+        type: captureMode,
       }),
     });
     setMultipartStatus("done");
@@ -397,6 +430,17 @@ export default function InterviewPage() {
           />
           I consent to recording and understand my responses are confidential.
         </label>
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-600">
+          <span className="font-medium text-slate-700">Capture mode</span>
+          <select
+            value={captureMode}
+            onChange={(event) => setCaptureMode(event.target.value as "video" | "audio")}
+            className="rounded-lg border border-slate-200 px-3 py-1"
+          >
+            <option value="video">Video + audio</option>
+            <option value="audio">Audio only</option>
+          </select>
+        </div>
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
@@ -410,7 +454,13 @@ export default function InterviewPage() {
           <p className="mt-2 text-sm text-slate-600">
             Answer naturally. If you need to pause, stop and re-record the clip.
           </p>
-          <video ref={previewRef} autoPlay muted className="mt-4 w-full rounded-xl bg-black" />
+          {captureMode === "video" ? (
+            <video ref={previewRef} autoPlay muted className="mt-4 w-full rounded-xl bg-black" />
+          ) : (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
+              Audio-only capture selected. No video preview is shown.
+            </div>
+          )}
           <div className="mt-4 flex flex-wrap gap-3">
             <button
               type="button"
@@ -514,7 +564,11 @@ export default function InterviewPage() {
           <h2 className="text-lg font-semibold">Playback</h2>
           {recordedUrl ? (
             <div className="mt-4">
-              <VideoPlayer src={recordedUrl} />
+              {captureMode === "video" ? (
+                <VideoPlayer src={recordedUrl} />
+              ) : (
+                <audio controls src={recordedUrl} className="w-full" />
+              )}
             </div>
           ) : (
             <p className="mt-4 text-sm text-gray-500">Record a clip to preview playback.</p>

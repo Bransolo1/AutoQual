@@ -1,6 +1,13 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import { TranscriptsService } from "./transcripts.service";
-import { CreateTranscriptInput, DetectPiiInput, RedactTranscriptInput } from "./transcripts.dto";
+import {
+  CreateTranscriptInput,
+  CreateTranscriptSpanInput,
+  DetectPiiInput,
+  RedactTranscriptInput,
+  UnredactTranscriptInput,
+} from "./transcripts.dto";
+import { Roles } from "../../auth/roles.decorator";
 
 @Controller("transcripts")
 export class TranscriptsController {
@@ -29,5 +36,21 @@ export class TranscriptsController {
   @Post(":id/detect-pii")
   detectPii(@Param("id") id: string, @Body() input: DetectPiiInput) {
     return this.transcriptsService.detectPii(id, input);
+  }
+
+  @Get(":id/spans")
+  listSpans(@Param("id") id: string) {
+    return this.transcriptsService.listSpans(id);
+  }
+
+  @Post(":id/spans")
+  createSpan(@Param("id") id: string, @Body() input: CreateTranscriptSpanInput) {
+    return this.transcriptsService.createSpan(id, input);
+  }
+
+  @Post(":id/unredact")
+  @Roles("admin")
+  unredact(@Param("id") id: string, @Body() input: UnredactTranscriptInput) {
+    return this.transcriptsService.unredact(id, input);
   }
 }

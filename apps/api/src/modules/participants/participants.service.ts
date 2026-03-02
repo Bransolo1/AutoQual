@@ -34,6 +34,8 @@ export class ParticipantsService {
   async create(input: CreateParticipantInput) {
     await this.assertQuota(input.studyId, input.segment, 1);
     await this.assertScreening(input.studyId, input.screeningAnswers);
+    await this.assertDuplicate(input.studyId, input.deviceFingerprint, input.email);
+    const velocityFlag = await this.assertVelocity(input.studyId, input.deviceFingerprint);
     return this.prisma.participant.create({
       data: {
         studyId: input.studyId,
@@ -42,6 +44,8 @@ export class ParticipantsService {
         source: input.source,
         segment: input.segment,
         deviceFingerprint: input.deviceFingerprint ?? null,
+        lastVerificationAttempt: new Date(),
+        velocityFlag,
       },
     });
   }
@@ -50,6 +54,8 @@ export class ParticipantsService {
     const count = Math.max(1, Math.min(input.count, 200));
     await this.assertQuota(input.studyId, input.segment, count);
     await this.assertScreening(input.studyId, input.screeningAnswers);
+    await this.assertDuplicate(input.studyId, input.deviceFingerprint, input.email);
+    const velocityFlag = await this.assertVelocity(input.studyId, input.deviceFingerprint, count);
     const participants = await this.prisma.$transaction(
       Array.from({ length: count }, (_, index) =>
         this.prisma.participant.create({
@@ -60,6 +66,8 @@ export class ParticipantsService {
             source: input.source ?? "panel",
             segment: input.segment,
             deviceFingerprint: input.deviceFingerprint ?? null,
+            lastVerificationAttempt: new Date(),
+            velocityFlag,
           },
         })
       )
@@ -89,6 +97,7 @@ export class ParticipantsService {
         verificationStatus: status,
         fraudScore: input.fraudScore ?? null,
         verifiedAt: new Date(),
+        lastVerificationAttempt: new Date(),
       },
     });
     await this.prisma.auditEvent.create({
@@ -117,6 +126,7 @@ export class ParticipantsService {
         verificationStatus: input.status,
         fraudScore: input.fraudScore ?? null,
         verifiedAt: new Date(),
+        lastVerificationAttempt: new Date(),
       },
     });
     if (participants.length) {
@@ -163,6 +173,41 @@ export class ParticipantsService {
     if (outcome === "screen_out") {
       throw new BadRequestException("screened_out");
     }
+  }
+
+  private async assertDuplicate(studyId: string, deviceFingerprint?: string, email?: string) {
+    if (!deviceFingerprint && !email) return;
+    const existing = await this.prisma.participant.findFirst({
+      where: {
+        studyId,
+        OR: [
+          ...(deviceFingerprint ? [{ deviceFingerprint }] : []),
+          ...(email ? [{ email }] : []),
+        ],
+      },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new BadRequestException("duplicate_participant");
+    }
+  }
+
+  private async assertVelocity(studyId: string, deviceFingerprint?: string, requested = 1) {
+    if (!deviceFingerprint) return null;
+    const windowMinutes = Number(process.env.VERIFICATION_VELOCITY_WINDOW_MINUTES ?? 10);
+    const maxInWindow = Number(process.env.VERIFICATION_VELOCITY_MAX ?? 3);
+    const cutoff = new Date(Date.now() - windowMinutes * 60 * 1000);
+    const recent = await this.prisma.participant.count({
+      where: {
+        studyId,
+        deviceFingerprint,
+        lastVerificationAttempt: { gte: cutoff },
+      },
+    });
+    if (recent + requested > maxInWindow) {
+      throw new BadRequestException("velocity_check_failed");
+    }
+    return recent + requested > Math.max(1, Math.floor(maxInWindow * 0.7)) ? "near_limit" : null;
   }
 
   private evaluateScreening(

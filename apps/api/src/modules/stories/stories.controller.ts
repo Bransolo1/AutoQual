@@ -40,4 +40,9 @@ export class StoriesController {
   generate(@Body() input: GenerateStoryInput) {
     return this.storiesService.generate(input.studyId);
   }
+
+  @Get(":id/export/:type")
+  exportStory(@Param("id") id: string, @Param("type") type: string) {
+    return this.storiesService.generateExport(id, type);
+  }
 }

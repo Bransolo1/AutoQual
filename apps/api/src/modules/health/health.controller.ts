@@ -1,24 +1,20 @@
 import { Controller, Get } from "@nestjs/common";
 import { Public } from "../../auth/public.decorator";
-import { PrismaService } from "../../prisma/prisma.service";
+import { HealthService } from "./health.service";
 
 @Controller("health")
 export class HealthController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly healthService: HealthService) {}
 
-  @Public()
   @Get()
-  async getHealth() {
-    let db = "ok";
-    try {
-      await this.prisma.$queryRaw`SELECT 1`;
-    } catch {
-      db = "error";
-    }
-    return {
-      status: db === "ok" ? "ok" : "degraded",
-      checks: { database: db },
-      version: process.env.npm_package_version ?? "1.0.0",
-    };
+  @Public()
+  getHealth() {
+    return this.healthService.getStatus();
+  }
+
+  @Get("search")
+  @Public()
+  getSearchHealth() {
+    return this.healthService.getStatus().then((status) => status.search);
   }
 }

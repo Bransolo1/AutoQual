@@ -8,6 +8,17 @@ type GenerateInsightPayload = {
   transcriptText: string;
 };
 
+type InsightResult = {
+  statement: string;
+  supporting_transcript_spans: string[];
+  supporting_video_clips: string[];
+  confidence_score: number;
+  business_implication: string;
+  tags: string[];
+  status: string;
+  reviewer_comments: string[];
+};
+
 @Injectable()
 export class AiService {
   private insightSchema = Joi.object({
@@ -21,30 +32,88 @@ export class AiService {
     reviewer_comments: Joi.array().items(Joi.string()).required(),
   });
 
+  private buildInsightPrompt(transcriptText: string) {
+    return [
+      "You are an insight extraction service.",
+      "Return ONLY valid JSON that matches this schema:",
+      `{
+  "statement": string,
+  "supporting_transcript_spans": string[],
+  "supporting_video_clips": string[],
+  "confidence_score": number (0-1),
+  "business_implication": string,
+  "tags": string[],
+  "status": "draft" | "in_review" | "approved" | "rejected",
+  "reviewer_comments": string[]
+}`,
+      "No markdown, no code fences, no additional text.",
+      "Transcript:",
+      transcriptText,
+    ].join("\n");
+  }
+
   async generateInsight(payload: GenerateInsightPayload) {
     const provider = process.env.AI_PROVIDER || "mock";
-    if (provider === "openai") {
-      await adapters.openai({ transcriptText: payload.transcriptText });
-    } else if (provider === "anthropic") {
-      await adapters.anthropic({ transcriptText: payload.transcriptText });
+    const maxAttempts = Number(process.env.AI_INSIGHT_MAX_ATTEMPTS ?? 3);
+    const startTime = Date.now();
+    let lastError: unknown = null;
+    let rawResult: unknown = null;
+    const prompt = this.buildInsightPrompt(payload.transcriptText);
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        if (provider === "openai") {
+          const adapterResult = await adapters.openai({
+            transcriptText: payload.transcriptText,
+            prompt,
+          });
+          if (adapterResult.status === "not_configured") {
+            rawResult = await deterministicInsightAdapter({
+              studyId: payload.studyId,
+              transcriptText: payload.transcriptText,
+            });
+          } else {
+            rawResult = adapterResult.result ?? adapterResult.raw ?? adapterResult;
+          }
+        } else if (provider === "anthropic") {
+          const adapterResult = await adapters.anthropic({
+            transcriptText: payload.transcriptText,
+            prompt,
+          });
+          if (adapterResult.status === "not_configured") {
+            rawResult = await deterministicInsightAdapter({
+              studyId: payload.studyId,
+              transcriptText: payload.transcriptText,
+            });
+          } else {
+            rawResult = adapterResult.result ?? adapterResult.raw ?? adapterResult;
+          }
+        } else {
+          rawResult = await deterministicInsightAdapter({
+            studyId: payload.studyId,
+            transcriptText: payload.transcriptText,
+          });
+        }
+        const { error, value } = this.insightSchema.validate(rawResult);
+        if (error) {
+          lastError = error;
+          continue;
+        }
+        const latencyMs = Date.now() - startTime;
+        return {
+          value: value as InsightResult,
+          meta: {
+            provider,
+            model: process.env.AI_MODEL ?? null,
+            prompt,
+            rawResponse: rawResult,
+            retries: attempt - 1,
+            latencyMs,
+          },
+        };
+      } catch (error) {
+        lastError = error;
+      }
     }
-    const result = await deterministicInsightAdapter({
-      studyId: payload.studyId,
-      transcriptText: payload.transcriptText,
-    });
-    const { error, value } = this.insightSchema.validate(result);
-    if (error) {
-      throw new BadRequestException("invalid_insight_payload");
-    }
-    return value as {
-      statement: string;
-      supporting_transcript_spans: string[];
-      supporting_video_clips: string[];
-      confidence_score: number;
-      business_implication: string;
-      tags: string[];
-      status: string;
-      reviewer_comments: string[];
-    };
+    throw new BadRequestException("invalid_insight_payload");
   }
 }

@@ -1,6 +1,6 @@
 export type CreateStoryInput = {
   studyId: string;
-  type: "article" | "video" | "podcast";
+  type: "article" | "showreel" | "podcast" | "slide";
   title: string;
   summary?: string;
   content: string;

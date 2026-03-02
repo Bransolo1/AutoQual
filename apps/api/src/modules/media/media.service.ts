@@ -1,7 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { QueueService } from "../../queue/queue.service";
-import { CreateClipInput, CreateMediaArtifactInput } from "./media.dto";
+import {
+  ChunkPartUrlInput,
+  CompleteChunkUploadInput,
+  CreateClipInput,
+  CreateMediaArtifactInput,
+  InitChunkUploadInput,
+} from "./media.dto";
 import {
   completeMultipartUpload,
   createMultipartUpload,
@@ -153,6 +159,27 @@ export class MediaService {
     await completeMultipartUpload(storageKey, uploadId, parts);
     const artifact = await this.createArtifact({ sessionId, type, storageKey });
     return { completed: true, storageKey, uploadId, artifactId: artifact.id };
+  }
+
+  async initChunkUpload(input: InitChunkUploadInput) {
+    const uploadId = `chunk-${Date.now()}`;
+    const storageKey = `uploads/${input.sessionId}/${uploadId}-${input.fileName}`;
+    const multipart = await this.initMultipart(storageKey, input.contentType);
+    return { uploadId: multipart.uploadId, storageKey, bucket: multipart.bucket };
+  }
+
+  async getChunkPartUrl(input: ChunkPartUrlInput) {
+    return this.getPartUrl(input.storageKey, input.uploadId, input.partNumber);
+  }
+
+  async completeChunkUpload(input: CompleteChunkUploadInput) {
+    return this.completeMultipart(
+      input.storageKey,
+      input.uploadId,
+      input.parts,
+      input.sessionId,
+      input.type ?? "video"
+    );
   }
 
   private async resolveRetentionDays(workspaceId: string, retentionDays?: number) {

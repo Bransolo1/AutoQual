@@ -335,11 +335,14 @@ model Participant {
   verificationStatus String @default("pending")
   fraudScore Int?
   verifiedAt DateTime?
+  lastVerificationAttempt DateTime?
+  velocityFlag String?
   createdAt DateTime @default(now())
   study     Study    @relation(fields: [studyId], references: [id])
   sessions  Session[]
 
   @@index([deviceFingerprint])
+  @@index([lastVerificationAttempt])
 }
 
 model Session {
@@ -375,10 +378,24 @@ model Transcript {
   redactedContent String?
   piiDetected Boolean @default(false)
   piiMetadata Json?
+  redactionOffsets Json?
   wordTimestamps Json?
   diarization Json?
   createdAt DateTime @default(now())
   session   Session  @relation(fields: [sessionId], references: [id])
+  spans     TranscriptSpan[]
+}
+
+model TranscriptSpan {
+  id           String   @id @default(cuid())
+  transcriptId String
+  startMs      Int
+  endMs        Int
+  text         String
+  createdAt    DateTime @default(now())
+  transcript   Transcript @relation(fields: [transcriptId], references: [id])
+
+  @@index([transcriptId])
 }
 
 model MediaArtifact {
@@ -408,6 +425,19 @@ model Theme {
   label     String
   createdAt DateTime @default(now())
   study     Study    @relation(fields: [studyId], references: [id])
+  mappings  ThemeMapping[]
+}
+
+model ThemeMapping {
+  id        String   @id @default(cuid())
+  themeId   String
+  segment   String
+  insightCount Int
+  createdAt DateTime @default(now())
+  theme     Theme    @relation(fields: [themeId], references: [id])
+
+  @@unique([themeId, segment])
+  @@index([segment])
 }
 
 model Insight {
@@ -422,6 +452,12 @@ model Insight {
   status      String
   versionNumber Int
   reviewerComments String[]
+  aiProvider String?
+  aiModel    String?
+  aiPrompt   String?
+  aiRawResponse Json?
+  aiRetries  Int?
+  aiLatencyMs Int?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   study       Study    @relation(fields: [studyId], references: [id])

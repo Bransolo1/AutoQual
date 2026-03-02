@@ -15,6 +15,7 @@ describe("TranscriptsService redaction", () => {
       redactedContent: "[REDACTED_EMAIL]",
       piiDetected: true,
       piiMetadata: { counts: { email: 1 } },
+      redactionOffsets: [{ type: "email", start: 0, end: 16 }],
     });
 
     expect(prisma.transcript.update).toHaveBeenCalledWith({
@@ -23,6 +24,7 @@ describe("TranscriptsService redaction", () => {
         redactedContent: "[REDACTED_EMAIL]",
         piiDetected: true,
         piiMetadata: { counts: { email: 1 } },
+        redactionOffsets: [{ type: "email", start: 0, end: 16 }],
       },
     });
     expect(result).toEqual({ id: "tx-1", piiDetected: true });
@@ -67,5 +69,43 @@ describe("TranscriptsService redaction", () => {
 
     expect(result.entities.length).toBeGreaterThan(0);
     expect(result.counts.email).toBe(1);
+  });
+
+  it("logs audit event on unredact", async () => {
+    const prisma = {
+      transcript: {
+        findUniqueOrThrow: vi.fn().mockResolvedValue({
+          id: "tx-4",
+          content: "Full content",
+          redactedContent: "Redacted",
+          piiDetected: true,
+          redactionOffsets: [{ type: "email", start: 5, end: 20 }],
+          session: { study: { workspaceId: "workspace-1" } },
+        }),
+      },
+      auditEvent: {
+        create: vi.fn(),
+      },
+    };
+    const queueService = { addTranscriptRedaction: vi.fn() };
+    const service = new TranscriptsService(prisma as never, queueService as never);
+
+    const result = await service.unredact("tx-4", { actorUserId: "reviewer-1", reason: "qa" });
+
+    expect(prisma.auditEvent.create).toHaveBeenCalledWith({
+      data: {
+        workspaceId: "workspace-1",
+        actorUserId: "reviewer-1",
+        action: "transcript.unredacted",
+        entityType: "transcript",
+        entityId: "tx-4",
+        metadata: {
+          reason: "qa",
+          piiDetected: true,
+          redactionOffsets: [{ type: "email", start: 5, end: 20 }],
+        },
+      },
+    });
+    expect(result.content).toBe("Full content");
   });
 });

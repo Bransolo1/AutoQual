@@ -1,8 +1,15 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { QueueService } from "../../queue/queue.service";
-import { CreateTranscriptInput, DetectPiiInput, PiiEntity, RedactTranscriptInput } from "./transcripts.dto";
+import {
+  CreateTranscriptInput,
+  CreateTranscriptSpanInput,
+  DetectPiiInput,
+  PiiEntity,
+  RedactTranscriptInput,
+  UnredactTranscriptInput,
+} from "./transcripts.dto";
 
 @Injectable()
 export class TranscriptsService {
@@ -98,6 +105,9 @@ export class TranscriptsService {
         redactedContent: input.redactedContent,
         piiDetected: input.piiDetected,
         piiMetadata: input.piiMetadata ? (input.piiMetadata as Prisma.InputJsonValue) : undefined,
+        redactionOffsets: input.redactionOffsets
+          ? (input.redactionOffsets as Prisma.InputJsonValue)
+          : undefined,
       },
     });
   }
@@ -114,6 +124,71 @@ export class TranscriptsService {
       return acc;
     }, {});
     return { transcriptId, locale, entities, counts };
+  }
+
+  async listSpans(transcriptId: string) {
+    return this.prisma.transcriptSpan.findMany({
+      where: { transcriptId },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async createSpan(transcriptId: string, input: CreateTranscriptSpanInput) {
+    if (!Number.isFinite(input.startMs) || !Number.isFinite(input.endMs)) {
+      throw new BadRequestException("invalid_span_range");
+    }
+    if (input.endMs <= input.startMs) {
+      throw new BadRequestException("invalid_span_range");
+    }
+    const transcript = await this.prisma.transcript.findUniqueOrThrow({
+      where: { id: transcriptId },
+      select: { content: true, wordTimestamps: true },
+    });
+    const text = this.extractSpanText(
+      transcript.content,
+      transcript.wordTimestamps as
+        | Array<{ word: string; startMs: number; endMs: number }>
+        | null
+        | undefined,
+      input.startMs,
+      input.endMs,
+    );
+    return this.prisma.transcriptSpan.create({
+      data: {
+        transcriptId,
+        startMs: input.startMs,
+        endMs: input.endMs,
+        text,
+      },
+    });
+  }
+
+  async unredact(transcriptId: string, input: UnredactTranscriptInput) {
+    const transcript = await this.prisma.transcript.findUniqueOrThrow({
+      where: { id: transcriptId },
+      include: { session: { include: { study: true } } },
+    });
+    await this.prisma.auditEvent.create({
+      data: {
+        workspaceId: transcript.session.study.workspaceId,
+        actorUserId: input.actorUserId ?? "system",
+        action: "transcript.unredacted",
+        entityType: "transcript",
+        entityId: transcriptId,
+        metadata: {
+          reason: input.reason ?? null,
+          piiDetected: transcript.piiDetected,
+          redactionOffsets: transcript.redactionOffsets ?? null,
+        },
+      },
+    });
+    return {
+      transcriptId,
+      content: transcript.content,
+      redactedContent: transcript.redactedContent,
+      piiDetected: transcript.piiDetected,
+      redactionOffsets: transcript.redactionOffsets,
+    };
   }
 
   private findPiiEntities(text: string): PiiEntity[] {
@@ -137,5 +212,22 @@ export class TranscriptsService {
       }
     }
     return entities.sort((a, b) => a.start - b.start);
+  }
+
+  private extractSpanText(
+    content: string,
+    wordTimestamps: Array<{ word: string; startMs: number; endMs: number }> | null | undefined,
+    startMs: number,
+    endMs: number,
+  ) {
+    if (Array.isArray(wordTimestamps) && wordTimestamps.length > 0) {
+      const words = wordTimestamps
+        .filter((entry) => entry.endMs >= startMs && entry.startMs <= endMs)
+        .map((entry) => entry.word);
+      if (words.length > 0) {
+        return words.join(" ");
+      }
+    }
+    return content.slice(0, 200);
   }
 }

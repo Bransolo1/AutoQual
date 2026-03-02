@@ -1,7 +1,14 @@
 import { Controller, Get, Post, Query } from "@nestjs/common";
 import { Roles } from "../../auth/roles.decorator";
 import { SsoService } from "./sso.service";
-import { SsoCallbackResponse, SsoLoginResponse } from "./sso.dto";
+import {
+  SsoCallbackResponse,
+  SsoLoginResponse,
+  SsoLogoutInput,
+  SsoLogoutResponse,
+  SsoRefreshInput,
+  SsoRefreshResponse,
+} from "./sso.dto";
 
 @Controller("auth/sso")
 export class SsoController {
@@ -58,7 +65,37 @@ export class SsoController {
       status: "ok",
       idToken: result.idToken,
       accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
       user: result.user,
     };
+  }
+
+  @Post("refresh")
+  async refresh(@Query() input: SsoRefreshInput): Promise<SsoRefreshResponse> {
+    if (process.env.SSO_ENABLED !== "true") {
+      return { status: "disabled" };
+    }
+    if (!input.refreshToken || !input.workspaceId) {
+      return { status: "missing_refresh" };
+    }
+    const result = await this.ssoService.refreshSession(input.refreshToken, input.workspaceId);
+    return {
+      status: "ok",
+      idToken: result.idToken,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    };
+  }
+
+  @Post("logout")
+  async logout(@Query() input: SsoLogoutInput): Promise<SsoLogoutResponse> {
+    if (process.env.SSO_ENABLED !== "true") {
+      return { status: "disabled" };
+    }
+    if (!input.idToken) {
+      return { status: "missing_id_token" };
+    }
+    const result = await this.ssoService.getLogoutUrl(input.idToken, input.postLogoutRedirectUri);
+    return result;
   }
 }

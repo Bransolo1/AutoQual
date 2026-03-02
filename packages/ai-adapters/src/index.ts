@@ -1,4 +1,17 @@
-export type InsightAdapter = (input: Record<string, unknown>) => Promise<Record<string, unknown>>;
+export type InsightAdapter = (
+  input: Record<string, unknown>
+) => Promise<{ status: string; raw?: unknown; result?: Record<string, unknown> }>;
+
+const extractJson = (value: string) => {
+  const start = value.indexOf("{");
+  const end = value.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) return null;
+  try {
+    return JSON.parse(value.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+};
 
 export const adapters = {
   openai: async (input: Record<string, unknown>) => {
@@ -16,7 +29,9 @@ export const adapters = {
       }),
     });
     const data = await res.json();
-    return { status: "ok", raw: data };
+    const content = data?.choices?.[0]?.message?.content;
+    const parsed = typeof content === "string" ? extractJson(content) : null;
+    return { status: "ok", raw: data, result: parsed ?? undefined };
   },
   anthropic: async (input: Record<string, unknown>) => {
     if (!process.env.ANTHROPIC_API_KEY) return { status: "not_configured" };
@@ -35,7 +50,9 @@ export const adapters = {
       }),
     });
     const data = await res.json();
-    return { status: "ok", raw: data };
+    const text = data?.content?.[0]?.text;
+    const parsed = typeof text === "string" ? extractJson(text) : null;
+    return { status: "ok", raw: data, result: parsed ?? undefined };
   },
 };
 

@@ -21,6 +21,27 @@ export class InsightsService {
     return this.prisma.insight.findMany({ where: { studyId }, include: { versions: true } });
   }
 
+  async getEvidenceCoverage(studyId: string) {
+    const insights = await this.prisma.insight.findMany({
+      where: { studyId },
+      select: { supportingTranscriptSpans: true, supportingVideoClips: true },
+    });
+    const total = insights.length;
+    const withEvidence = insights.filter((insight) =>
+      this.hasEvidence({
+        supportingTranscriptSpans: Array.isArray(insight.supportingTranscriptSpans)
+          ? (insight.supportingTranscriptSpans as unknown[])
+          : [],
+        supportingVideoClips: Array.isArray(insight.supportingVideoClips)
+          ? (insight.supportingVideoClips as unknown[])
+          : [],
+      }),
+    ).length;
+    const withoutEvidence = total - withEvidence;
+    const coverage = total > 0 ? Math.round((withEvidence / total) * 1000) / 10 : 0;
+    return { total, withEvidence, withoutEvidence, coverage };
+  }
+
   async getById(insightId: string) {
     return this.prisma.insight.findUniqueOrThrow({
       where: { id: insightId },
@@ -45,6 +66,12 @@ export class InsightsService {
           status: input.status,
           versionNumber: 1,
           reviewerComments: input.reviewerComments,
+          aiProvider: input.aiProvider ?? null,
+          aiModel: input.aiModel ?? null,
+          aiPrompt: input.aiPrompt ?? null,
+          aiRawResponse: input.aiRawResponse ?? undefined,
+          aiRetries: input.aiRetries ?? null,
+          aiLatencyMs: input.aiLatencyMs ?? null,
         },
       });
 
@@ -134,14 +161,20 @@ export class InsightsService {
     const result = await this.aiService.generateInsight({ studyId, transcriptText });
     return this.create({
       studyId,
-      statement: result.statement,
-      supportingTranscriptSpans: result.supporting_transcript_spans,
-      supportingVideoClips: result.supporting_video_clips,
-      confidenceScore: result.confidence_score,
-      businessImplication: result.business_implication,
-      tags: result.tags,
-      status: result.status as CreateInsightInput["status"],
-      reviewerComments: result.reviewer_comments,
+      statement: result.value.statement,
+      supportingTranscriptSpans: result.value.supporting_transcript_spans,
+      supportingVideoClips: result.value.supporting_video_clips,
+      confidenceScore: result.value.confidence_score,
+      businessImplication: result.value.business_implication,
+      tags: result.value.tags,
+      status: result.value.status as CreateInsightInput["status"],
+      reviewerComments: result.value.reviewer_comments,
+      aiProvider: result.meta.provider ?? undefined,
+      aiModel: result.meta.model ?? undefined,
+      aiPrompt: result.meta.prompt ?? undefined,
+      aiRawResponse: result.meta.rawResponse ?? undefined,
+      aiRetries: result.meta.retries ?? undefined,
+      aiLatencyMs: result.meta.latencyMs ?? undefined,
     });
   }
 

@@ -1,5 +1,7 @@
 import { Injectable } from "@nestjs/common";
+import { BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
+import { getSignedMediaUrl, putObject } from "../../common/s3.client";
 import { CreateStoryInput } from "./stories.dto";
 
 @Injectable()
@@ -54,6 +56,67 @@ export class StoriesService {
       "%%EOF",
     ].join("\n");
     return pdf;
+  }
+
+  private buildExportPayload(story: { title: string; summary?: string | null; content: string }, type: string) {
+    if (type === "showreel") {
+      return [
+        `Showreel script: ${story.title}`,
+        story.summary ? `Summary: ${story.summary}` : null,
+        "Scene 1: Title card + study objective",
+        "Scene 2: Clip montage (3-5 highlights)",
+        "Scene 3: Insight overlay bullets",
+        "Scene 4: Theme montage and takeaway",
+        "Scene 5: Closing + next actions",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    }
+    if (type === "podcast") {
+      return [
+        `Podcast script: ${story.title}`,
+        story.summary ? `Summary: ${story.summary}` : null,
+        "Host: Welcome to the study recap.",
+        "Host: Here are the headline insights.",
+        story.content,
+        "Host: Thanks for listening.",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    }
+    if (type === "slide") {
+      return [
+        `Slide export: ${story.title}`,
+        story.summary ? `Summary: ${story.summary}` : null,
+        "Slide 1: Executive summary",
+        "Slide 2: Key insights",
+        "Slide 3: Themes & evidence",
+        "Slide 4: Recommendations",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    }
+    throw new BadRequestException("unsupported_export_type");
+  }
+
+  async generateExport(storyId: string, type: string) {
+    const story = await this.prisma.story.findUniqueOrThrow({
+      where: { id: storyId },
+      select: { id: true, studyId: true, title: true, summary: true, content: true },
+    });
+    const payload = this.buildExportPayload(story, type);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const storageKey = `exports/stories/${storyId}/${type}-${timestamp}.txt`;
+    await putObject(storageKey, payload, "text/plain");
+    const exportRecord = await this.prisma.export.create({
+      data: {
+        studyId: story.studyId,
+        type: `story_${type}`,
+        storageKey,
+      },
+    });
+    const url = await getSignedMediaUrl(storageKey);
+    return { exportId: exportRecord.id, storageKey, url };
   }
 
   create(input: CreateStoryInput) {
@@ -118,7 +181,7 @@ export class StoriesService {
     const video = await this.prisma.story.create({
       data: {
         studyId,
-        type: "video",
+        type: "showreel",
         title: "Story reel outline",
         summary: "Storyboard outline for a short internal insights video.",
         content: [
