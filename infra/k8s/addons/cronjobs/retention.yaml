@@ -1,0 +1,26 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sensehub-retention
+  namespace: sensehub-production
+spec:
+  schedule: "0 2 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: retention
+              image: curlimages/curl:8.10.1
+              command:
+                - sh
+                - -c
+                - |
+                  curl -sS -X POST "$API_BASE_URL/audit/retention-run" \
+                    -H "Authorization: Bearer $RETENTION_TOKEN"
+              env:
+                - name: API_BASE_URL
+                  value: "CHANGE_ME"
+                - name: RETENTION_TOKEN
+                  value: "CHANGE_ME"

@@ -1,8 +1,9 @@
 apiVersion: 1
+
 providers:
-  - name: sensehub
+  - name: "autoqual"
     orgId: 1
-    folder: "Sensehub"
+    folder: "AutoQual"
     type: file
     disableDeletion: false
     editable: true
