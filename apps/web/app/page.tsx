@@ -1,11 +1,11 @@
 import React from "react";
 import Link from "next/link";
+import { API_BASE, HEADERS } from "@/lib/api";
 
 async function getRecentNotifications() {
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
   try {
     const response = await fetch(`${API_BASE}/notifications?userId=demo-user&limit=5`, {
-      headers: { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" },
+      headers: HEADERS,
       cache: "no-store",
     });
     if (!response.ok) return [];
