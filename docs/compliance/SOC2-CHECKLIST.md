@@ -8,6 +8,7 @@
 - [ ] MFA for production admin accounts
 - [ ] Data classification policy (docs/trust-center/DATA_CLASSIFICATION.md)
 - [ ] Key management & rotation policy (docs/trust-center/KEY_MANAGEMENT.md)
+- [ ] Access review policy (docs/trust-center/ACCESS_REVIEWS.md)
 
 ## Availability
 - [ ] Health checks and uptime monitoring
@@ -47,3 +48,6 @@
 - [ ] Data classification policy (docs/trust-center/DATA_CLASSIFICATION.md)
 - [ ] Key management & rotation (docs/trust-center/KEY_MANAGEMENT.md)
 - [ ] Incident response policy (docs/trust-center/INCIDENT_RESPONSE.md)
+- [ ] Data retention policy (docs/trust-center/DATA_RETENTION.md)
+- [ ] Access review policy (docs/trust-center/ACCESS_REVIEWS.md)
+- [ ] Secure SDLC policy (docs/trust-center/SDLC_SECURITY.md)

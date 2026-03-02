@@ -29,6 +29,9 @@ Use it to align onboarding, procurement, and security reviews.
 - Data classification policy: `docs/trust-center/DATA_CLASSIFICATION.md`
 - Key management & rotation: `docs/trust-center/KEY_MANAGEMENT.md`
 - Incident response & breach notification: `docs/trust-center/INCIDENT_RESPONSE.md`
+- Data retention policy: `docs/trust-center/DATA_RETENTION.md`
+- Access review policy: `docs/trust-center/ACCESS_REVIEWS.md`
+- Secure SDLC policy: `docs/trust-center/SDLC_SECURITY.md`
 
 ## Security Contacts
 - Security contact: security@company.test
