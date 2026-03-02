@@ -13,10 +13,23 @@ describe("ApprovalsPage", () => {
   beforeEach(() => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => {
+      vi.fn(async (input: RequestInfo) => {
+        const url = String(input);
+        if (url.includes("/approvals?")) {
+          return {
+            ok: true,
+            json: async () => [],
+          } as Response;
+        }
+        if (url.includes("/analysis/study/")) {
+          return {
+            ok: true,
+            json: async () => ({ gapCount: 0 }),
+          } as Response;
+        }
         return {
           ok: true,
-          json: async () => [],
+          json: async () => ({}),
         } as Response;
       }),
     );
@@ -33,5 +46,41 @@ describe("ApprovalsPage", () => {
     await waitFor(() => {
       expect(screen.getByText((content) => content.startsWith("No approvals yet."))).toBeInTheDocument();
     });
+  });
+
+  it("disables approval when evidence gaps exist", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo) => {
+      const url = String(input);
+      if (url.includes("/approvals?")) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: "approval-1",
+              linkedEntityType: "insight_set",
+              linkedEntityId: "study-1",
+              status: "requested",
+              requestedByUserId: "demo-user",
+            },
+          ],
+        } as Response;
+      }
+      if (url.includes("/analysis/study/study-1/evidence-coverage")) {
+        return {
+          ok: true,
+          json: async () => ({ gapCount: 2 }),
+        } as Response;
+      }
+      return { ok: true, json: async () => ({}) } as Response;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<ApprovalsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Evidence gaps: 2")).toBeInTheDocument();
+    });
+    const approveButton = screen.getByRole("button", { name: "Approve" });
+    expect(approveButton).toBeDisabled();
   });
 });

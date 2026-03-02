@@ -176,7 +176,10 @@ export default function ApprovalsPage() {
         <div className="mt-3 flex flex-wrap gap-3">
           <select
             value={createType}
-            onChange={(e) => setCreateType(e.target.value)}
+            onChange={(e) => {
+              setCreateType(e.target.value);
+              setCreateApprovalMessage("");
+            }}
             className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
           >
             <option value="study">Study</option>
@@ -187,7 +190,10 @@ export default function ApprovalsPage() {
           </select>
           <input
             value={createEntityId}
-            onChange={(e) => setCreateEntityId(e.target.value)}
+            onChange={(e) => {
+              setCreateEntityId(e.target.value);
+              setCreateApprovalMessage("");
+            }}
             placeholder="Linked entity ID"
             className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
           />

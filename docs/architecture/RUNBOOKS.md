@@ -48,3 +48,19 @@ Windows note: ensure Docker Desktop is running with WSL2 enabled.
 1. Confirm WSL2 is installed: `wsl --install --no-distribution` (requires reboot).
 2. Reboot and open Docker Desktop until it reports Running.
 3. If the daemon still fails, restart Docker Desktop and try again.
+
+## Testing (local)
+1. API unit tests:
+   - `npm --workspace apps/api run test`
+2. Web unit tests:
+   - `npm --workspace apps/web run test`
+3. Worker unit tests:
+   - `npm --workspace apps/worker run test`
+4. End-to-end (requires API + web + infra running):
+   - `npm --workspace apps/e2e run test`
+
+## Testing status (latest)
+- API unit tests: passing
+- Web unit tests: passing
+- Worker unit tests: passing
+- E2E: blocked until Docker Desktop is running
