@@ -26,6 +26,7 @@ Enterprise-grade AI qualitative research platform for moderated interviews, anal
 ## Security & privacy
 - `SECURITY.md`
 - `PRIVACY.md`
+- Trust center overview: `docs/trust-center/README.md`
 
 #
 Sensehub Auto Qual

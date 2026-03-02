@@ -29,6 +29,10 @@
 
 ## Evidence artifacts
 - [ ] Security overview document (SECURITY.md)
+- [ ] Vulnerability disclosure policy (docs/trust-center/VULNERABILITY_DISCLOSURE.md)
 - [ ] Threat model (docs/threat-model/README.md)
 - [ ] Architecture overview (docs/architecture/OVERVIEW.md)
 - [ ] Deployment guide (docs/architecture/DEPLOYMENT.md)
+- [ ] Data Processing Addendum (docs/trust-center/DPA.md)
+- [ ] Subprocessor list (docs/trust-center/SUBPROCESSORS.md)
+- [ ] Penetration test summary (docs/trust-center/PEN_TEST_SUMMARY.md)

@@ -18,10 +18,10 @@ Use it to align onboarding, procurement, and security reviews.
 - Access scoping and workspace isolation
 
 ## Compliance Artifacts
-- Data Processing Addendum (DPA)
-- Subprocessor list
-- Penetration test summary
-- Vulnerability disclosure policy
+- Data Processing Addendum (DPA): `docs/trust-center/DPA.md`
+- Subprocessor list: `docs/trust-center/SUBPROCESSORS.md`
+- Penetration test summary: `docs/trust-center/PEN_TEST_SUMMARY.md`
+- Vulnerability disclosure policy: `docs/trust-center/VULNERABILITY_DISCLOSURE.md`
 
 ## Security Contacts
 - Security contact: security@company.test
