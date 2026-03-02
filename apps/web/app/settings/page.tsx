@@ -44,6 +44,13 @@ export default function SettingsPage() {
   const [artifactStatus, setArtifactStatus] = useState("draft");
   const [artifactContentType, setArtifactContentType] = useState("application/pdf");
   const [artifactUploadUrl, setArtifactUploadUrl] = useState<string | null>(null);
+  const [revokeJti, setRevokeJti] = useState("");
+  const [revokeExpiresAt, setRevokeExpiresAt] = useState(() => {
+    const date = new Date(Date.now() + 7 * 86400000);
+    return date.toISOString().slice(0, 10);
+  });
+  const [revokeReason, setRevokeReason] = useState("");
+  const [revokeStatus, setRevokeStatus] = useState<string | null>(null);
 
   const loadSettings = async () => {
     const res = await fetch(`${API_BASE}/workspaces/demo-workspace-id`, { headers: HEADERS });
@@ -134,6 +141,27 @@ export default function SettingsPage() {
     if (!res.ok) return;
     const payload = await res.json();
     setArtifactUploadUrl(payload?.url ?? null);
+  };
+
+  const revokeToken = async () => {
+    if (!revokeJti.trim()) return;
+    setRevokeStatus("Revoking...");
+    const res = await fetch(`${API_BASE}/auth/tokens/revoke`, {
+      method: "POST",
+      headers: { ...HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workspaceId: "demo-workspace-id",
+        actorUserId: "demo-user",
+        jti: revokeJti.trim(),
+        expiresAt: new Date(revokeExpiresAt).toISOString(),
+        reason: revokeReason.trim() || undefined,
+      }),
+    });
+    setRevokeStatus(res.ok ? "Token revoked." : "Failed to revoke.");
+    if (res.ok) {
+      setRevokeJti("");
+      setRevokeReason("");
+    }
   };
 
   return (
@@ -462,6 +490,41 @@ export default function SettingsPage() {
       ) : (
         <p className="mt-6 text-sm text-gray-500">Loading settings…</p>
       )}
+
+      <section className="mt-8 max-w-xl rounded-2xl bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold">Token revocation</h2>
+        <p className="mt-2 text-sm text-gray-600">
+          Revoke access tokens by JTI for compromised sessions or user offboarding.
+        </p>
+        <div className="mt-4 grid gap-3">
+          <input
+            value={revokeJti}
+            onChange={(event) => setRevokeJti(event.target.value)}
+            placeholder="Token JTI"
+            className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
+          />
+          <input
+            type="date"
+            value={revokeExpiresAt}
+            onChange={(event) => setRevokeExpiresAt(event.target.value)}
+            className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
+          />
+          <input
+            value={revokeReason}
+            onChange={(event) => setRevokeReason(event.target.value)}
+            placeholder="Reason (optional)"
+            className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
+          />
+          <button
+            type="button"
+            onClick={revokeToken}
+            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white"
+          >
+            Revoke token
+          </button>
+          {revokeStatus && <span className="text-xs text-gray-500">{revokeStatus}</span>}
+        </div>
+      </section>
     </main>
   );
 }
