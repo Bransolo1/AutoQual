@@ -12,6 +12,16 @@ export default function InterviewPage() {
   const [recording, setRecording] = useState(false);
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
   const [captureMode, setCaptureMode] = useState<"video" | "audio">("video");
+  const [interviewMode, setInterviewMode] = useState<"ai-moderated" | "record" | "live">("ai-moderated");
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [totalQuestions] = useState(5);
+  const questionLabels = [
+    "Tell us about yourself and your role.",
+    "What problems or frustrations do you face?",
+    "How do you currently solve these problems?",
+    "What would an ideal solution look like?",
+    "Is there anything else you'd like to share?",
+  ];
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [deviceReady, setDeviceReady] = useState(false);
   const [deviceStatus, setDeviceStatus] = useState<string | null>(null);
@@ -41,7 +51,7 @@ export default function InterviewPage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem("sensehub.embed.session");
+    const stored = window.localStorage.getItem("openqual.embed.session");
     if (stored) {
       try {
         const parsed = JSON.parse(stored) as { participantId: string; sessionId: string };
@@ -338,7 +348,7 @@ export default function InterviewPage() {
     if (success && typeof window !== "undefined") {
       window.parent?.postMessage(
         {
-          type: "sensehub.embed.completed",
+          type: "openqual.embed.completed",
           studyId: searchParams.get("studyId") ?? null,
           token: embedToken,
         },
@@ -366,7 +376,7 @@ export default function InterviewPage() {
     const nextSession = { participantId: data.participantId, sessionId: data.sessionId };
     setSessionInfo(nextSession);
     if (typeof window !== "undefined") {
-      window.localStorage.setItem("sensehub.embed.session", JSON.stringify(nextSession));
+      window.localStorage.setItem("openqual.embed.session", JSON.stringify(nextSession));
     }
     setSessionStatus("Session ready.");
   };
@@ -412,10 +422,18 @@ export default function InterviewPage() {
 
   return (
     <main className="min-h-screen px-8 py-10">
-      <h1 className="text-2xl font-semibold">Participant Interview</h1>
+      <h1 className="text-2xl font-semibold">AI Interview Session</h1>
       <p className="mt-2 text-sm text-gray-600">
-        Thank you for taking part. Your feedback helps improve the experience.
+        LLM-powered qualitative interview. The AI moderator follows your discussion guide and probes for depth.
       </p>
+      <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-5 text-sm text-slate-700 shadow-sm">
+        <span className="font-semibold text-blue-900">How this works</span>
+        <p className="mt-2">
+          The AI moderator uses your system prompt and discussion guide to conduct the interview. Each question is asked
+          in sequence, with the LLM generating contextual follow-up probes based on participant responses. Configure your
+          LLM key in Settings.
+        </p>
+      </div>
       <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="font-semibold text-slate-900">Before you begin</span>
@@ -434,6 +452,16 @@ export default function InterviewPage() {
           I consent to recording and understand my responses are confidential.
         </label>
         <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-600">
+          <span className="font-medium text-slate-700">Mode</span>
+          <select
+            value={interviewMode}
+            onChange={(event) => setInterviewMode(event.target.value as "ai-moderated" | "record" | "live")}
+            className="rounded-lg border border-slate-200 px-3 py-1"
+          >
+            <option value="ai-moderated">AI-moderated</option>
+            <option value="record">Record</option>
+            <option value="live">Live</option>
+          </select>
           <span className="font-medium text-slate-700">Capture mode</span>
           <select
             value={captureMode}
@@ -593,6 +621,13 @@ export default function InterviewPage() {
               placeholder="Optional: summarize what you just said."
             />
           </label>
+          <div className="mt-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+            <span className="font-semibold">
+              Question {currentQuestionIndex + 1} of {totalQuestions}
+            </span>
+            {" — "}
+            <span>{questionLabels[currentQuestionIndex]}</span>
+          </div>
           <div className="mt-3 flex flex-wrap gap-3">
             <button
               type="button"
@@ -603,7 +638,10 @@ export default function InterviewPage() {
             </button>
             <button
               type="button"
-              onClick={getNextPrompt}
+              onClick={() => {
+                getNextPrompt();
+                setCurrentQuestionIndex((prev) => Math.min(prev + 1, totalQuestions - 1));
+              }}
               className="rounded-full bg-brand-500 px-4 py-2 text-sm font-medium text-white"
             >
               Get next prompt
@@ -656,7 +694,7 @@ export default function InterviewPage() {
                   type="button"
                   onClick={() => {
                     if (typeof window !== "undefined") {
-                      window.localStorage.removeItem("sensehub.embed.session");
+                      window.localStorage.removeItem("openqual.embed.session");
                     }
                     setSessionInfo(null);
                     setSessionStatus("Session cleared.");
