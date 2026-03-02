@@ -40,6 +40,13 @@ export default function AuditLogPage() {
     return events.filter((event) => event.action.toLowerCase().includes(needle));
   }, [events, actionFilter]);
 
+  const securityEvents = useMemo(() => {
+    const match = ["token.", "audit.export", "retention.", "auth.", "sso."];
+    return events.filter((event) =>
+      match.some((prefix) => event.action.toLowerCase().startsWith(prefix)),
+    );
+  }, [events]);
+
   return (
     <main className="min-h-screen px-8 py-10">
       <h1 className="text-2xl font-semibold">Audit Log</h1>
@@ -134,6 +141,31 @@ export default function AuditLogPage() {
         {retentionStatus && <span className="text-xs text-gray-500">{retentionStatus}</span>}
       </div>
       <div className="mt-6 grid gap-4">
+        <section className="rounded-2xl bg-white p-5 shadow-sm">
+          <h2 className="text-sm font-semibold text-gray-500">Security events</h2>
+          <p className="mt-2 text-xs text-gray-600">
+            Token revocations, audit exports, retention runs, and auth activity.
+          </p>
+          {securityEvents.length === 0 ? (
+            <p className="mt-3 text-xs text-gray-500">No security events found.</p>
+          ) : (
+            <ul className="mt-3 space-y-2 text-sm text-gray-700">
+              {securityEvents.slice(0, 8).map((event) => (
+                <li key={event.id} className="rounded-lg border border-gray-100 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase text-brand-600">{event.action}</span>
+                    <span className="text-xs text-gray-400">
+                      {new Date(event.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-xs text-gray-600">
+                    {event.entityType} · {event.entityId}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
         {filteredEvents.length === 0 && (
           <div className="rounded-2xl bg-white p-6 text-sm text-gray-500 shadow-sm">
             No audit events found.
