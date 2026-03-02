@@ -21,15 +21,18 @@ export default function AuditLogPage() {
   const [entityId, setEntityId] = useState("");
   const [limit, setLimit] = useState("50");
   const [actionFilter, setActionFilter] = useState("");
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const [retentionStatus, setRetentionStatus] = useState<string | null>(null);
+  const workspaceId = "demo-workspace-id";
 
   useEffect(() => {
-    const params = new URLSearchParams({ workspaceId: "demo-workspace-id", limit });
+    const params = new URLSearchParams({ workspaceId, limit });
     if (entityType) params.set("entityType", entityType);
     if (entityId) params.set("entityId", entityId);
     fetch(`${API_BASE}/audit?${params.toString()}`, { headers: HEADERS })
       .then((r) => (r.ok ? r.json() : []))
       .then(setEvents);
-  }, [entityType, entityId, limit]);
+  }, [entityType, entityId, limit, workspaceId]);
 
   const filteredEvents = useMemo(() => {
     if (!actionFilter.trim()) return events;
@@ -76,6 +79,59 @@ export default function AuditLogPage() {
         >
           Retention events
         </button>
+        <button
+          type="button"
+          onClick={() => {
+            const params = new URLSearchParams({ workspaceId, limit });
+            if (entityType) params.set("entityType", entityType);
+            if (entityId) params.set("entityId", entityId);
+            window.location.href = `${API_BASE}/audit/export.csv?${params.toString()}`;
+          }}
+          className="rounded-full border border-gray-200 px-3 py-2 text-xs text-gray-600"
+        >
+          Download CSV
+        </button>
+        <button
+          type="button"
+          onClick={async () => {
+            setExportStatus("Exporting...");
+            const params = new URLSearchParams({ workspaceId, actorUserId: "demo-user", limit });
+            if (entityType) params.set("entityType", entityType);
+            if (entityId) params.set("entityId", entityId);
+            const res = await fetch(`${API_BASE}/audit/export?${params.toString()}`, { method: "POST", headers: HEADERS });
+            if (!res.ok) {
+              setExportStatus("Export failed.");
+              return;
+            }
+            const payload = await res.json();
+            if (payload?.url) {
+              setExportStatus("Export ready. Opening download...");
+              window.open(payload.url as string, "_blank");
+            } else {
+              setExportStatus("Export completed.");
+            }
+          }}
+          className="rounded-full border border-gray-200 px-3 py-2 text-xs text-gray-600"
+        >
+          Export to storage
+        </button>
+        <button
+          type="button"
+          onClick={async () => {
+            setRetentionStatus("Running retention...");
+            const params = new URLSearchParams({ workspaceId });
+            const res = await fetch(`${API_BASE}/audit/retention-run?${params.toString()}`, {
+              method: "POST",
+              headers: HEADERS,
+            });
+            setRetentionStatus(res.ok ? "Retention run completed." : "Retention run failed.");
+          }}
+          className="rounded-full border border-gray-200 px-3 py-2 text-xs text-gray-600"
+        >
+          Run retention
+        </button>
+        {exportStatus && <span className="text-xs text-gray-500">{exportStatus}</span>}
+        {retentionStatus && <span className="text-xs text-gray-500">{retentionStatus}</span>}
       </div>
       <div className="mt-6 grid gap-4">
         {filteredEvents.length === 0 && (
