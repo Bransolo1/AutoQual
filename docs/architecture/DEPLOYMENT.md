@@ -34,3 +34,6 @@ Troubleshooting:
   - `infra/k8s/pdb.yaml`
 - Run migrations:
   - `infra/k8s/migration-job.yaml`
+
+## Testing
+- See `docs/architecture/RUNBOOKS.md` for local test commands.
