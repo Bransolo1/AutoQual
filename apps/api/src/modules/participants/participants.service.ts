@@ -61,7 +61,7 @@ export class ParticipantsService {
         this.prisma.participant.create({
           data: {
             studyId: input.studyId,
-            email: `recruit-${Date.now()}-${index}@example.com`,
+            email: (count === 1 && input.email) ? input.email : `recruit-${Date.now()}-${index}@example.com`,
             locale: input.locale,
             source: input.source ?? "panel",
             segment: input.segment,
@@ -155,7 +155,7 @@ export class ParticipantsService {
     const target = targets[key];
     if (!target && target !== 0) return;
     const current = await this.prisma.participant.count({
-      where: { studyId, segment: key },
+      where: { studyId, segment: key === "unassigned" ? null : key },
     });
     if (current + requested > target) {
       throw new BadRequestException("quota_full");
