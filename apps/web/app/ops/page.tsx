@@ -61,6 +61,8 @@ export default function OpsDashboardPage() {
   const [bulkStatus, setBulkStatus] = useState<string | null>(null);
   const [activationFilter, setActivationFilter] = useState("all");
   const [alertSummary, setAlertSummary] = useState<{ lowActivation: number; lowFeedback: number } | null>(null);
+  const [ssoConfig, setSsoConfig] = useState<{ enabled: boolean; issuerUrl: string; clientId: string } | null>(null);
+  const [secretsHealth, setSecretsHealth] = useState<{ provider: string; status: string; message: string } | null>(null);
 
   useEffect(() => {
     fetch(`${API_BASE}/ops/dashboard?workspaceId=demo-workspace-id`, { headers: HEADERS })
@@ -84,6 +86,12 @@ export default function OpsDashboardPage() {
           setLastRetention(new Date(retention.createdAt).toLocaleString());
         }
       });
+    fetch(`${API_BASE}/auth/sso/config`, { headers: HEADERS })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setSsoConfig);
+    fetch(`${API_BASE}/secrets/health`, { headers: HEADERS })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setSecretsHealth);
   }, []);
 
   if (!data) return <main className="p-8">Loading…</main>;
@@ -225,6 +233,33 @@ export default function OpsDashboardPage() {
           <Link href="/ops/recruitment" className="mt-3 inline-block text-xs text-brand-600 hover:underline">
             Review recruitment queue →
           </Link>
+        </div>
+        <div className="rounded-2xl bg-white p-6 shadow-sm">
+          <h2 className="text-sm font-semibold text-gray-500">Security posture</h2>
+          <div className="mt-3 space-y-2 text-xs text-gray-600">
+            <div className="flex items-center justify-between">
+              <span>SSO</span>
+              <span className="text-xs text-gray-500">
+                {ssoConfig?.enabled ? "Enabled" : "Disabled"}
+              </span>
+            </div>
+            {ssoConfig?.issuerUrl && (
+              <div className="text-[11px] text-gray-500">Issuer: {ssoConfig.issuerUrl}</div>
+            )}
+            <div className="flex items-center justify-between">
+              <span>Secrets provider</span>
+              <span className="text-xs text-gray-500">{secretsHealth?.provider ?? "n/a"}</span>
+            </div>
+            <div className="text-[11px] text-gray-500">
+              {secretsHealth?.status ?? "unknown"} · {secretsHealth?.message ?? "No status"}
+            </div>
+            {lastRetention && (
+              <div className="text-[11px] text-gray-500">Last retention: {lastRetention}</div>
+            )}
+            <a href="/audit" className="text-xs text-brand-600 hover:underline">
+              View audit controls →
+            </a>
+          </div>
         </div>
         <div className="rounded-2xl bg-white p-6 shadow-sm">
           <h2 className="text-sm font-semibold text-gray-500">Stakeholder feedback</h2>
