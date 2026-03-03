@@ -2,9 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
+import { useApi } from "../lib/use-api";
 
 type AuditEvent = {
   id: string;
@@ -18,6 +16,7 @@ type AuditEvent = {
 };
 
 export default function AuditLogPage() {
+  const { apiFetch, user } = useApi();
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [entityType, setEntityType] = useState("");
   const [entityId, setEntityId] = useState("");
@@ -29,7 +28,7 @@ export default function AuditLogPage() {
   const [dateTo, setDateTo] = useState("");
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [retentionStatus, setRetentionStatus] = useState<string | null>(null);
-  const workspaceId = "demo-workspace-id";
+  const workspaceId = user?.workspaceId ?? "";
   const [exportHistoryStatus, setExportHistoryStatus] = useState<string | null>(null);
   const [exportActorFilter, setExportActorFilter] = useState("");
   const [exportFrom, setExportFrom] = useState("");
@@ -39,7 +38,7 @@ export default function AuditLogPage() {
     const params = new URLSearchParams({ workspaceId, limit });
     if (entityType) params.set("entityType", entityType);
     if (entityId) params.set("entityId", entityId);
-    fetch(`${API_BASE}/audit?${params.toString()}`, { headers: HEADERS })
+    apiFetch(`/audit?${params.toString()}`))
       .then((r) => (r.ok ? r.json() : []))
       .then(setEvents);
   }, [entityType, entityId, limit, workspaceId]);
@@ -159,7 +158,7 @@ export default function AuditLogPage() {
             const params = new URLSearchParams({ workspaceId, limit });
             if (entityType) params.set("entityType", entityType);
             if (entityId) params.set("entityId", entityId);
-            window.location.href = `${API_BASE}/audit/export.csv?${params.toString()}`;
+            window.location.href = `/audit/export.csv?${params.toString()}`;
           }}
           className="rounded-full border border-gray-200 px-3 py-2 text-xs text-gray-600"
         >
@@ -169,10 +168,10 @@ export default function AuditLogPage() {
           type="button"
           onClick={async () => {
             setExportStatus("Exporting...");
-            const params = new URLSearchParams({ workspaceId, actorUserId: "demo-user", limit });
+            const params = new URLSearchParams({ workspaceId, actorUserId: user?.sub ?? "", limit });
             if (entityType) params.set("entityType", entityType);
             if (entityId) params.set("entityId", entityId);
-            const res = await fetch(`${API_BASE}/audit/export?${params.toString()}`, { method: "POST", headers: HEADERS });
+            const res = await apiFetch(`/audit/export?${params.toString()}`,{method: "POST"});
             if (!res.ok) {
               setExportStatus("Export failed.");
               return;
@@ -194,10 +193,7 @@ export default function AuditLogPage() {
           onClick={async () => {
             setRetentionStatus("Running retention...");
             const params = new URLSearchParams({ workspaceId });
-            const res = await fetch(`${API_BASE}/audit/retention-run?${params.toString()}`, {
-              method: "POST",
-              headers: HEADERS,
-            });
+            const res = await apiFetch(`/audit/retention-run?${params.toString()}`,{method: "POST"});
             setRetentionStatus(res.ok ? "Retention run completed." : "Retention run failed.");
           }}
           className="rounded-full border border-gray-200 px-3 py-2 text-xs text-gray-600"
@@ -251,8 +247,8 @@ export default function AuditLogPage() {
                     onClick={async () => {
                       setExportHistoryStatus("Loading export URL...");
                       const res = await fetch(
-                        `${API_BASE}/audit/export-url?storageKey=${encodeURIComponent(event.entityId)}`,
-                        { headers: HEADERS },
+                        `/audit/export-url?storageKey=${encodeURIComponent(event.entityId)}`,
+                        { },
                       );
                       if (!res.ok) {
                         setExportHistoryStatus("Failed to load export URL.");

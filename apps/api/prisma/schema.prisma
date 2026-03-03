@@ -52,6 +52,10 @@ enum ReviewStatus {
 model Workspace {
   id        String   @id @default(cuid())
   name      String
+  slug      String   @unique
+  logoUrl   String?
+  billingStatus String @default("trialing")
+  trialEndsAt   DateTime?
   retentionDays Int @default(365)
   auditRetentionEnabled Boolean @default(false)
   auditRetentionDays Int @default(365)
@@ -71,6 +75,21 @@ model Workspace {
   alertViews AlertView[]
   shareChecklists ShareChecklist[]
   revokedTokens RevokedToken[]
+  invitations WorkspaceInvitation[]
+}
+
+model WorkspaceInvitation {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  email           String
+  role            String    @default("researcher")
+  token           String    @unique
+  status          String    @default("pending")
+  expiresAt       DateTime
+  invitedByUserId String
+  acceptedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }
 
 model User {

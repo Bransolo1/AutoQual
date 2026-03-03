@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user", "x-role": "client" };
+import { useApi } from "../../lib/use-api";
 
 type Approval = {
   id: string;
@@ -16,12 +14,13 @@ type Approval = {
 };
 
 export default function ClientApprovalsPage() {
+  const { apiFetch, user } = useApi();
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [statusFilter, setStatusFilter] = useState("requested");
 
   useEffect(() => {
     const params = new URLSearchParams({ status: statusFilter });
-    fetch(`${API_BASE}/approvals?${params.toString()}`, { headers: HEADERS })
+    apiFetch(`/approvals?${params.toString()}`))
       .then((r) => (r.ok ? r.json() : []))
       .then(setApprovals);
   }, [statusFilter]);

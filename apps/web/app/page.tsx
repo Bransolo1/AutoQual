@@ -3,9 +3,12 @@ import Link from "next/link";
 
 async function getRecentNotifications() {
   const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+  const { bearerHeader } = await import("../lib/session");
+  const auth = bearerHeader();
+  if (!auth.Authorization) return [];
   try {
-    const response = await fetch(`${API_BASE}/notifications?userId=demo-user&limit=5`, {
-      headers: { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" },
+    const response = await fetch(`${API_BASE}/notifications?limit=5`, {
+      headers: { ...auth },
       cache: "no-store",
     });
     if (!response.ok) return [];

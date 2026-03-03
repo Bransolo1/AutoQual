@@ -2,9 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
+import { useApi } from "../lib/use-api";
 
 type SearchResult = {
   id?: string;
@@ -15,6 +13,7 @@ type SearchResult = {
 };
 
 export default function SearchPage() {
+  const { apiFetch, user } = useApi();
   const [query, setQuery] = useState("");
   const [studyId, setStudyId] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -23,7 +22,7 @@ export default function SearchPage() {
   const runSearch = async () => {
     if (!query.trim()) return;
     setStatus("Searching...");
-    const res = await fetch(`${API_BASE}/search/insights/query`, {
+    const res = await apiFetch(`/search/insights/query`, {
       method: "POST",
       headers: { ...HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({ query, studyId: studyId || undefined, limit: 20 }),

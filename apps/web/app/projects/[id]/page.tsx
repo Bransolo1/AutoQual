@@ -3,9 +3,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ProjectBoard } from "./ProjectBoard";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
+import { useApi } from "../../lib/use-api";
 
 type Project = {
   id: string;
@@ -24,6 +22,7 @@ type Project = {
 };
 
 export default function ProjectDetailPage() {
+  const { apiFetch, user } = useApi();
   const params = useParams();
   const id = params?.id as string | undefined;
   const [project, setProject] = useState<Project | null>(null);
@@ -53,14 +52,14 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    fetch(`${API_BASE}/projects/${id}`, { headers: HEADERS })
+    apiFetch(`/projects/${id}`))
       .then((r) => (r.ok ? r.json() : null))
       .then(setProject);
   }, [id]);
 
   useEffect(() => {
     if (!id) return;
-    fetch(`${API_BASE}/notifications?userId=demo-user&limit=25`, { headers: HEADERS })
+    apiFetch(`/notifications?userId=${user?.sub ?? ""}&limit=25`))
       .then((r) => (r.ok ? r.json() : []))
       .then((data) => {
         const filtered = (data as { id: string; type: string; payload: Record<string, unknown>; createdAt: string }[])
@@ -72,7 +71,7 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    fetch(`${API_BASE}/tasks/dependency-order?projectId=${id}`, { headers: HEADERS })
+    apiFetch(`/tasks/dependency-order?projectId=${id}`))
       .then((r) => (r.ok ? r.json() : []))
       .then((data) => setDependencyOrder(data ?? []));
   }, [id]);
@@ -80,7 +79,7 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     if (!project) return;
     const taskIds = new Set((project.tasks ?? []).map((task) => task.id));
-    fetch(`${API_BASE}/audit?workspaceId=demo-workspace-id&limit=50`, { headers: HEADERS })
+    apiFetch(`/audit?workspaceId=${user?.workspaceId ?? ""}&limit=50`))
       .then((r) => (r.ok ? r.json() : []))
       .then((data) => {
         const filtered = (data as {
@@ -101,13 +100,13 @@ export default function ProjectDetailPage() {
   if (!project) return <main className="p-8">Loading…</main>;
 
   const refreshProject = async () => {
-    const response = await fetch(`${API_BASE}/projects/${id}`, { headers: HEADERS });
+    const response = await apiFetch(`/projects/${id}`));
     setProject(response.ok ? await response.json() : null);
   };
 
   const createTask = async () => {
     if (!taskTitle.trim()) return;
-    await fetch(`${API_BASE}/tasks`, {
+    await apiFetch(`/tasks`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...HEADERS },
       body: JSON.stringify({
@@ -119,8 +118,8 @@ export default function ProjectDetailPage() {
         priority: taskPriority,
         assigneeUserId: taskAssignee || null,
         reviewerUserId: taskReviewer || null,
-        workspaceId: "demo-workspace-id",
-        actorUserId: "demo-user",
+        workspaceId: user?.workspaceId ?? "",
+        actorUserId: user?.sub ?? "",
         dueDate: new Date(taskDueDate).toISOString(),
         dependencies: taskDependencies
           .split(",")

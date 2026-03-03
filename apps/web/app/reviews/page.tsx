@@ -1,9 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
+import { useApi } from "../lib/use-api";
 
 type Review = {
   id: string;
@@ -15,6 +13,7 @@ type Review = {
 };
 
 export default function ReviewsPage() {
+  const { apiFetch, user } = useApi();
   const [studyId, setStudyId] = useState("");
   const [status, setStatus] = useState("in_review");
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -24,7 +23,7 @@ export default function ReviewsPage() {
     if (!studyId) return;
     setLoadStatus("Loading reviews...");
     const params = new URLSearchParams({ studyId, status });
-    const res = await fetch(`${API_BASE}/reviews?${params.toString()}`, { headers: HEADERS });
+    const res = await apiFetch(`/reviews?${params.toString()}`));
     if (!res.ok) {
       setLoadStatus("Failed to load reviews.");
       return;

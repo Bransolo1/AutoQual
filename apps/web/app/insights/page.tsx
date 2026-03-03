@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { useApi } from "../lib/use-api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
 const STORY_DRAFT_KEY = "autoqual.storyDraft.v1";
 
 type Insight = {
@@ -103,6 +102,7 @@ function parseEvidenceInput(value: string) {
 }
 
 export default function InsightWorkbenchPage() {
+  const { apiFetch, user } = useApi();
   const [studyId, setStudyId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -128,7 +128,7 @@ export default function InsightWorkbenchPage() {
     }
     setLoading(true);
     setLoadStatus("Loading insights...");
-    const res = await fetch(`${API_BASE}/insights?studyId=${studyId}`, { headers: HEADERS });
+    const res = await apiFetch(`/insights?studyId=${studyId}`));
     if (!res.ok) {
       setLoadStatus("Failed to load insights.");
       setLoading(false);
@@ -153,10 +153,10 @@ export default function InsightWorkbenchPage() {
       setSegments([]);
       return;
     }
-    const res = await fetch(`${API_BASE}/themes?studyId=${studyId}`, { headers: HEADERS });
+    const res = await apiFetch(`/themes?studyId=${studyId}`));
     if (!res.ok) return;
     setThemes(await res.json());
-    const segmentsRes = await fetch(`${API_BASE}/themes/segments?studyId=${studyId}`, { headers: HEADERS });
+    const segmentsRes = await apiFetch(`/themes/segments?studyId=${studyId}`));
     if (segmentsRes.ok) {
       const payload = (await segmentsRes.json()) as { segments?: string[] };
       setSegments(payload.segments ?? []);
@@ -170,8 +170,7 @@ export default function InsightWorkbenchPage() {
       return;
     }
     setSearchStatus("Searching...");
-    const res = await fetch(`${API_BASE}/search/insights/query-evidence`, {
-      method: "POST",
+    const res = await apiFetch(`/search/insights/query-evidence`,{method: "POST",
       headers: { ...HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({ query: searchQuery, studyId, limit: 8 }),
     });
@@ -234,7 +233,7 @@ export default function InsightWorkbenchPage() {
     const transcriptSpans = parseEvidenceInput(state.transcriptInput);
     const videoClips = parseEvidenceInput(state.clipInput);
     updateEvidenceState(insightId, { status: "Saving evidence..." });
-    const res = await fetch(`${API_BASE}/insights/${insightId}/evidence`, {
+    const res = await apiFetch(`/insights/${insightId}/evidence`, {
       method: "POST",
       headers: { ...HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -263,7 +262,7 @@ export default function InsightWorkbenchPage() {
       return;
     }
     updateSpanState(insightId, { status: "Creating span..." });
-    const res = await fetch(`${API_BASE}/transcripts/${state.transcriptId}/spans`, {
+    const res = await apiFetch(`/transcripts/${state.transcriptId}/spans`, {
       method: "POST",
       headers: { ...HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({ startMs, endMs }),
@@ -295,9 +294,7 @@ export default function InsightWorkbenchPage() {
       return;
     }
     updateSpanState(insightId, { status: "Loading spans..." });
-    const res = await fetch(`${API_BASE}/transcripts/${state.transcriptId}/spans`, {
-      headers: HEADERS,
-    });
+    const res = await apiFetch(`/transcripts/${state.transcriptId}/spans`, {});
     if (!res.ok) {
       updateSpanState(insightId, { status: "Failed to load spans." });
       return;
@@ -339,11 +336,11 @@ export default function InsightWorkbenchPage() {
       return;
     }
     updateUnredactState({ status: "Requesting unredact..." });
-    const res = await fetch(`${API_BASE}/transcripts/${unredactState.transcriptId}/unredact`, {
+    const res = await apiFetch(`/transcripts/${unredactState.transcriptId}/unredact`, {
       method: "POST",
       headers: { ...HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({
-        actorUserId: "demo-user",
+        actorUserId: user?.sub ?? "",
         reason: unredactState.reason || undefined,
       }),
     });

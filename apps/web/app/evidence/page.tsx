@@ -1,9 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
+import { useApi } from "../lib/use-api";
 
 type Artifact = {
   id: string;
@@ -12,6 +10,7 @@ type Artifact = {
 };
 
 export default function EvidencePage() {
+  const { apiFetch, user } = useApi();
   const [sessionId, setSessionId] = useState("demo-session");
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
@@ -21,12 +20,12 @@ export default function EvidencePage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const loadArtifacts = async () => {
-    const res = await fetch(`${API_BASE}/media/artifacts?sessionId=${sessionId}`, { headers: HEADERS });
+    const res = await apiFetch(`/media/artifacts?sessionId=${sessionId}`));
     setArtifacts(res.ok ? await res.json() : []);
   };
 
   const fetchSignedUrl = async (artifactId: string) => {
-    const res = await fetch(`${API_BASE}/media/artifacts/${artifactId}/signed-url`, { headers: HEADERS });
+    const res = await apiFetch(`/media/artifacts/${artifactId}/signed-url`));
     const data = res.ok ? await res.json() : null;
     setSignedUrl(data?.url ?? null);
     setActiveArtifact(artifactId);

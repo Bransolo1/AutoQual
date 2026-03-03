@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+import { useApi } from "../../lib/use-api";
 
 type InsightVersion = {
   id: string;
@@ -40,6 +39,7 @@ function diffText(a: string, b: string) {
 }
 
 export default function InsightDetailPage() {
+  const { apiFetch, user } = useApi();
   const params = useParams();
   const searchParams = useSearchParams();
   const id = params?.id as string | undefined;
@@ -47,11 +47,9 @@ export default function InsightDetailPage() {
   const [reviewerId, setReviewerId] = useState("");
   const [comment, setComment] = useState("");
   const role = searchParams?.get("role") ?? "researcher";
-  const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user", "x-role": role };
-
   useEffect(() => {
     if (!id) return;
-    fetch(`${API_BASE}/insights/${id}`, { headers: HEADERS })
+    apiFetch(`/insights/${id}`))
       .then((r) => (r.ok ? r.json() : null))
       .then(setInsight);
   }, [id]);
@@ -63,7 +61,7 @@ export default function InsightDetailPage() {
   }, [insight]);
 
   const refreshInsight = async () => {
-    const res = await fetch(`${API_BASE}/insights/${id}`, { headers: HEADERS });
+    const res = await apiFetch(`/insights/${id}`));
     setInsight(res.ok ? await res.json() : null);
   };
 
@@ -77,7 +75,7 @@ export default function InsightDetailPage() {
   const updateReviewStatus = async (status: string) => {
     if (!primaryReview) return;
     if (role === "client") return;
-    await fetch(`${API_BASE}/reviews/${primaryReview.id}/status`, {
+    await apiFetch(`/reviews/${primaryReview.id}/status`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -86,8 +84,8 @@ export default function InsightDetailPage() {
       body: JSON.stringify({
         status,
         reviewerId: "demo-reviewer",
-        workspaceId: "demo-workspace-id",
-        actorUserId: "demo-user",
+        workspaceId: user?.workspaceId ?? "",
+        actorUserId: user?.sub ?? "",
       }),
     });
     await refreshInsight();
@@ -95,13 +93,13 @@ export default function InsightDetailPage() {
   const assignReviewer = async () => {
     if (!primaryReview || !reviewerId) return;
     if (role === "client") return;
-    await fetch(`${API_BASE}/reviews/${primaryReview.id}/assign`, {
+    await apiFetch(`/reviews/${primaryReview.id}/assign`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", ...HEADERS },
       body: JSON.stringify({
         reviewerId,
-        workspaceId: "demo-workspace-id",
-        actorUserId: "demo-user",
+        workspaceId: user?.workspaceId ?? "",
+        actorUserId: user?.sub ?? "",
       }),
     });
     await refreshInsight();
@@ -109,10 +107,10 @@ export default function InsightDetailPage() {
   const addComment = async () => {
     if (!primaryReview || !comment.trim()) return;
     if (role === "client") return;
-    await fetch(`${API_BASE}/reviews/${primaryReview.id}/comments`, {
+    await apiFetch(`/reviews/${primaryReview.id}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...HEADERS },
-      body: JSON.stringify({ authorUserId: "demo-user", body: comment.trim() }),
+      body: JSON.stringify({ authorUserId: user?.sub ?? "", body: comment.trim() }),
     });
     setComment("");
     await refreshInsight();

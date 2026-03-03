@@ -3,9 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user", "x-role": "client" };
+import { useApi } from "../../../lib/use-api";
 
 type Insight = {
   id: string;
@@ -19,13 +17,14 @@ type Insight = {
 };
 
 export default function ClientInsightPage() {
+  const { apiFetch, user } = useApi();
   const params = useParams();
   const id = params?.id as string | undefined;
   const [insight, setInsight] = useState<Insight | null>(null);
 
   useEffect(() => {
     if (!id) return;
-    fetch(`${API_BASE}/insights/${id}`, { headers: HEADERS })
+    apiFetch(`/insights/${id}`))
       .then((r) => (r.ok ? r.json() : null))
       .then(setInsight);
   }, [id]);

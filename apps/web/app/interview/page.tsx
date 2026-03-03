@@ -3,11 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { VideoPlayer } from "../../components/VideoPlayer";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
+import { useApi } from "../lib/use-api";
 
 export default function InterviewPage() {
+  const { apiFetch, user } = useApi();
   const searchParams = useSearchParams();
   const embedToken = useMemo(() => searchParams.get("token"), [searchParams]);
   const previewRef = useRef<HTMLVideoElement | null>(null);
@@ -132,7 +131,7 @@ export default function InterviewPage() {
     const sessionId = sessionInfo?.sessionId ?? "demo-session";
     const extension = captureMode === "video" ? "webm" : "webm";
     const storageKey = `uploads/${sessionId}/${Date.now()}.${extension}`;
-    const res = await fetch(`${API_BASE}/media/upload-url`, {
+    const res = await apiFetch(`/media/upload-url`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...HEADERS },
       body: JSON.stringify({
@@ -174,7 +173,7 @@ export default function InterviewPage() {
     });
     if (success) {
       const sessionId = sessionInfo?.sessionId ?? "demo-session";
-      await fetch(`${API_BASE}/media/artifacts`, {
+      await apiFetch(`/media/artifacts`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...HEADERS },
         body: JSON.stringify({
@@ -189,7 +188,7 @@ export default function InterviewPage() {
   const startMultipart = async () => {
     const sessionId = sessionInfo?.sessionId ?? "demo-session";
     const storageKey = `uploads/${sessionId}/${Date.now()}-multipart.webm`;
-    const res = await fetch(`${API_BASE}/media/multipart/init`, {
+    const res = await apiFetch(`/media/multipart/init`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...HEADERS },
       body: JSON.stringify({
@@ -214,7 +213,7 @@ export default function InterviewPage() {
     const runPart = async (partNumber: number) => {
       const offset = (partNumber - 1) * chunkSize;
       const chunk = blob.slice(offset, Math.min(blob.size, offset + chunkSize));
-      const partRes = await fetch(`${API_BASE}/media/multipart/part-url`, {
+      const partRes = await apiFetch(`/media/multipart/part-url`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...HEADERS },
         body: JSON.stringify({
@@ -249,7 +248,7 @@ export default function InterviewPage() {
     });
     await Promise.all(workers);
     setMultipartParts(parts);
-    await fetch(`${API_BASE}/media/multipart/complete`, {
+    await apiFetch(`/media/multipart/complete`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...HEADERS },
       body: JSON.stringify({
@@ -266,7 +265,7 @@ export default function InterviewPage() {
   const resumeMultipart = async () => {
     if (!multipart || multipartParts.length === 0) return;
     setMultipartStatus("resuming");
-    await fetch(`${API_BASE}/media/multipart/complete`, {
+    await apiFetch(`/media/multipart/complete`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...HEADERS },
       body: JSON.stringify({
@@ -282,7 +281,7 @@ export default function InterviewPage() {
 
   const prefetchPrompts = async () => {
     setPromptStatus("Prefetching...");
-    const res = await fetch(`${API_BASE}/moderator/demo-session/prefetch?count=3`, {
+    const res = await apiFetch(`/moderator/demo-session/prefetch?count=3`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...HEADERS },
     });
@@ -297,7 +296,7 @@ export default function InterviewPage() {
 
   const getNextPrompt = async () => {
     setPromptStatus("Getting next prompt...");
-    const res = await fetch(`${API_BASE}/moderator/demo-session/next-turn`, {
+    const res = await apiFetch(`/moderator/demo-session/next-turn`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...HEADERS },
       body: JSON.stringify({
@@ -319,7 +318,7 @@ export default function InterviewPage() {
   const completeEmbeddedInterview = async () => {
     if (!embedToken) return;
     setCompletionStatus("Submitting...");
-    const res = await fetch(`${API_BASE}/embed/${embedToken}/complete`, {
+    const res = await apiFetch(`/embed/${embedToken}/complete`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -347,7 +346,7 @@ export default function InterviewPage() {
   const createEmbedSession = async () => {
     if (!embedToken || !participantEmail.trim()) return;
     setSessionStatus("Starting session...");
-    const res = await fetch(`${API_BASE}/embed/${embedToken}/session`, {
+    const res = await apiFetch(`/embed/${embedToken}/session`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -371,7 +370,7 @@ export default function InterviewPage() {
   const updateConsent = async (nextValue: boolean) => {
     setConsentAccepted(nextValue);
     if (!embedToken || !sessionInfo) return;
-    await fetch(`${API_BASE}/embed/${embedToken}/consent`, {
+    await apiFetch(`/embed/${embedToken}/consent`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId: sessionInfo.sessionId, consented: nextValue }),
@@ -385,7 +384,7 @@ export default function InterviewPage() {
       return;
     }
     setTurnStatus("Saving response...");
-    const turnRes = await fetch(`${API_BASE}/embed/${embedToken}/turn`, {
+    const turnRes = await apiFetch(`/embed/${embedToken}/turn`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -396,7 +395,7 @@ export default function InterviewPage() {
     });
     setTurnStatus(turnRes.ok ? "Response saved." : "Unable to save response.");
     setTranscriptStatus("Saving transcript...");
-    const transcriptRes = await fetch(`${API_BASE}/embed/${embedToken}/transcript`, {
+    const transcriptRes = await apiFetch(`/embed/${embedToken}/transcript`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

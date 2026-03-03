@@ -3,9 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user", "x-role": "client" };
+import { useApi } from "../lib/use-api";
 
 type ClientView = {
   name: string;
@@ -72,6 +70,7 @@ type AnalysisDelivery = {
 };
 
 export default function ClientPortalPage() {
+  const { apiFetch, user } = useApi();
   const searchParams = useSearchParams();
   const projectId = searchParams?.get("projectId");
   const formatChecklistKey = (key: string) =>
@@ -196,16 +195,16 @@ export default function ClientPortalPage() {
 
   useEffect(() => {
     if (!projectId) return;
-    fetch(`${API_BASE}/projects/${projectId}/client-view`, { headers: HEADERS })
+    apiFetch(`/projects/${projectId}/client-view`))
       .then((r) => (r.ok ? r.json() : null))
       .then(setData);
-    fetch(`${API_BASE}/notifications?userId=demo-user&limit=5`, { headers: HEADERS })
+    apiFetch(`/notifications?userId=${user?.sub ?? ""}&limit=5`))
       .then((r) => (r.ok ? r.json() : []))
       .then(setClientNotifications);
-    fetch(`${API_BASE}/approvals?status=requested`, { headers: HEADERS })
+    apiFetch(`/approvals?status=requested`))
       .then((r) => (r.ok ? r.json() : []))
       .then(setPendingApprovals);
-    fetch(`${API_BASE}/feedback?projectId=${projectId}`, { headers: HEADERS })
+    apiFetch(`/feedback?projectId=${projectId}`))
       .then((r) => (r.ok ? r.json() : []))
       .then((items: { deliverableType?: string; rating?: number | null; studyId?: string | null }[]) => {
         const summary = items.reduce<Record<string, { total: number; avgRating: number | null }>>(
@@ -246,7 +245,7 @@ export default function ClientPortalPage() {
 
   useEffect(() => {
     if (!projectId) return;
-    fetch(`${API_BASE}/projects/${projectId}/analysis-delivery`, { headers: HEADERS })
+    apiFetch(`/projects/${projectId}/analysis-delivery`))
       .then((r) => (r.ok ? r.json() : null))
       .then(setAnalysisDelivery);
   }, [projectId]);
@@ -254,14 +253,14 @@ export default function ClientPortalPage() {
 
   useEffect(() => {
     if (!data?.studyIds?.[0]) return;
-    fetch(`${API_BASE}/exports?studyId=${data.studyIds[0]}`, { headers: HEADERS })
+    apiFetch(`/exports?studyId=${data.studyIds[0]}`))
       .then((r) => (r.ok ? r.json() : []))
       .then(setExportHistory);
   }, [data]);
 
   useEffect(() => {
     if (!data?.studyIds?.[0]) return;
-    fetch(`${API_BASE}/stories?studyId=${data.studyIds[0]}`, { headers: HEADERS })
+    apiFetch(`/stories?studyId=${data.studyIds[0]}`))
       .then((r) => (r.ok ? r.json() : []))
       .then(setStories);
   }, [data]);
@@ -269,13 +268,13 @@ export default function ClientPortalPage() {
   useEffect(() => {
     const reportStudyId = data?.studyIds?.[0];
     if (!reportStudyId) return;
-    fetch(`${API_BASE}/exports/study/${reportStudyId}/json`, { headers: HEADERS })
+    apiFetch(`/exports/study/${reportStudyId}/json`))
       .then((r) => (r.ok ? r.json() : null))
       .then(setReport);
-    fetch(`${API_BASE}/exports/study/${reportStudyId}/markdown`, { headers: HEADERS })
+    apiFetch(`/exports/study/${reportStudyId}/markdown`))
       .then((r) => (r.ok ? r.text() : ""))
       .then((text) => setReportMarkdown(text || null));
-    fetch(`${API_BASE}/exports/study/${reportStudyId}/evidence-bundle`, { headers: HEADERS })
+    apiFetch(`/exports/study/${reportStudyId}/evidence-bundle`))
       .then((r) => (r.ok ? r.json() : null))
       .then((bundle) => {
         setEvidenceBundle(
@@ -301,11 +300,10 @@ export default function ClientPortalPage() {
   const submitFeedback = async (deliverableType: "deliverable_pack" | "report" | "story") => {
     if (!projectId) return;
     setFeedbackStatus("Submitting...");
-    const res = await fetch(`${API_BASE}/feedback`, {
-      method: "POST",
+    const res = await apiFetch(`/feedback`,{method: "POST",
       headers: { ...HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({
-        workspaceId: "demo-workspace-id",
+        workspaceId: user?.workspaceId ?? "",
         projectId,
         studyId: data.studyIds?.[0],
         deliverableType,
@@ -327,12 +325,12 @@ export default function ClientPortalPage() {
     setShareChecklistSaving(true);
     setShareChecklistError(null);
     try {
-      const res = await fetch(`${API_BASE}/projects/${projectId}/share-checklist`, {
+      const res = await apiFetch(`/projects/${projectId}/share-checklist`, {
         method: "PATCH",
         headers: { ...HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify({
-          workspaceId: "demo-workspace-id",
-          actorUserId: "demo-user",
+          workspaceId: user?.workspaceId ?? "",
+          actorUserId: user?.sub ?? "",
           items: next,
         }),
       });
@@ -884,7 +882,7 @@ export default function ClientPortalPage() {
                           <div className="flex flex-wrap gap-2 text-xs text-brand-600">
                             {metric.deliverableType === "story" && metric.deliverableId && (
                               <a
-                                href={`${API_BASE}/exports/story/${metric.deliverableId}/pdf`}
+                                href={`/exports/story/${metric.deliverableId}/pdf`}
                                 className="hover:underline"
                               >
                                 View story
@@ -892,7 +890,7 @@ export default function ClientPortalPage() {
                             )}
                             {metric.deliverableType === "report" && metric.studyId && (
                               <a
-                                href={`${API_BASE}/exports/study/${metric.studyId}/pdf`}
+                                href={`/exports/study/${metric.studyId}/pdf`}
                                 className="hover:underline"
                               >
                                 View report
@@ -1265,7 +1263,7 @@ export default function ClientPortalPage() {
           {data.studyIds?.[0] && (
             <div className="mt-4 flex flex-wrap gap-3 text-xs">
               <a
-                href={`${API_BASE}/exports/study/${data.studyIds[0]}/markdown`}
+                href={`/exports/study/${data.studyIds[0]}/markdown`}
                 className="text-brand-600 hover:underline"
               >
                 Download Markdown →
@@ -1280,19 +1278,19 @@ export default function ClientPortalPage() {
                 View audit log →
               </Link>
               <a
-                href={`${API_BASE}/exports/study/${data.studyIds[0]}/json`}
+                href={`/exports/study/${data.studyIds[0]}/json`}
                 className="text-brand-600 hover:underline"
               >
                 Download JSON →
               </a>
               <a
-                href={`${API_BASE}/exports/study/${data.studyIds[0]}/ppt-outline`}
+                href={`/exports/study/${data.studyIds[0]}/ppt-outline`}
                 className="text-brand-600 hover:underline"
               >
                 Download PPT outline →
               </a>
               <a
-                href={`${API_BASE}/exports/study/${data.studyIds[0]}/evidence-bundle.csv`}
+                href={`/exports/study/${data.studyIds[0]}/evidence-bundle.csv`}
                 className="text-brand-600 hover:underline"
               >
                 Download evidence bundle →
@@ -1428,16 +1426,16 @@ export default function ClientPortalPage() {
                 <pre className="mt-3 whitespace-pre-wrap text-xs text-gray-700">{story.content}</pre>
                 <div className="mt-3 flex flex-wrap gap-3 text-xs text-brand-600">
                   <a
-                    href={`${API_BASE}/exports/story/${story.id}/markdown`}
+                    href={`/exports/story/${story.id}/markdown`}
                     className="hover:underline"
                   >
                     Markdown
                   </a>
-                  <a href={`${API_BASE}/exports/story/${story.id}/pdf`} className="hover:underline">
+                  <a href={`/exports/story/${story.id}/pdf`} className="hover:underline">
                     PDF
                   </a>
                   <a
-                    href={`${API_BASE}/exports/story/${story.id}/audio-script`}
+                    href={`/exports/story/${story.id}/audio-script`}
                     className="hover:underline"
                   >
                     Audio script
@@ -1469,21 +1467,21 @@ export default function ClientPortalPage() {
                 )}
                 <div className="mt-2 text-xs text-brand-600">
                   <a
-                    href={`${API_BASE}/exports/study/${data.studyIds?.[0]}/markdown`}
+                    href={`/exports/study/${data.studyIds?.[0]}/markdown`}
                     className="hover:underline"
                   >
                     Markdown
                   </a>
                   {" · "}
                   <a
-                    href={`${API_BASE}/exports/study/${data.studyIds?.[0]}/pdf`}
+                    href={`/exports/study/${data.studyIds?.[0]}/pdf`}
                     className="hover:underline"
                   >
                     PDF
                   </a>
                   {" · "}
                   <a
-                    href={`${API_BASE}/exports/study/${data.studyIds?.[0]}/ppt-outline`}
+                    href={`/exports/study/${data.studyIds?.[0]}/ppt-outline`}
                     className="hover:underline"
                   >
                     PPT outline
@@ -1675,19 +1673,19 @@ export default function ClientPortalPage() {
                   {analysisDelivery.exports[0] && (
                     <>
                       <a
-                        href={`${API_BASE}/exports/study/${analysisDelivery.exports[0].studyId}/markdown`}
+                        href={`/exports/study/${analysisDelivery.exports[0].studyId}/markdown`}
                         className="hover:underline"
                       >
                         Report (Markdown)
                       </a>
                       <a
-                        href={`${API_BASE}/exports/study/${analysisDelivery.exports[0].studyId}/pdf`}
+                        href={`/exports/study/${analysisDelivery.exports[0].studyId}/pdf`}
                         className="hover:underline"
                       >
                         Report (PDF)
                       </a>
                       <a
-                        href={`${API_BASE}/exports/study/${analysisDelivery.exports[0].studyId}/ppt-outline`}
+                        href={`/exports/study/${analysisDelivery.exports[0].studyId}/ppt-outline`}
                         className="hover:underline"
                       >
                         Report (PPT outline)
@@ -1697,19 +1695,19 @@ export default function ClientPortalPage() {
                   {analysisDelivery.stories[0] && (
                     <>
                       <a
-                        href={`${API_BASE}/exports/story/${analysisDelivery.stories[0].id}/markdown`}
+                        href={`/exports/story/${analysisDelivery.stories[0].id}/markdown`}
                         className="hover:underline"
                       >
                         Story (Markdown)
                       </a>
                       <a
-                        href={`${API_BASE}/exports/story/${analysisDelivery.stories[0].id}/pdf`}
+                        href={`/exports/story/${analysisDelivery.stories[0].id}/pdf`}
                         className="hover:underline"
                       >
                         Story (PDF)
                       </a>
                       <a
-                        href={`${API_BASE}/exports/story/${analysisDelivery.stories[0].id}/audio-script`}
+                        href={`/exports/story/${analysisDelivery.stories[0].id}/audio-script`}
                         className="hover:underline"
                       >
                         Story (Audio script)
@@ -1718,7 +1716,7 @@ export default function ClientPortalPage() {
                   )}
                   {analysisDelivery.exports[0] && (
                     <a
-                      href={`${API_BASE}/exports/study/${analysisDelivery.exports[0].studyId}/evidence-bundle.csv`}
+                      href={`/exports/study/${analysisDelivery.exports[0].studyId}/evidence-bundle.csv`}
                       className="hover:underline"
                     >
                       Evidence bundle (CSV)
@@ -1742,21 +1740,21 @@ export default function ClientPortalPage() {
                         </div>
                         <div className="mt-2 text-xs text-brand-600">
                           <a
-                            href={`${API_BASE}/exports/study/${exportItem.studyId}/markdown`}
+                            href={`/exports/study/${exportItem.studyId}/markdown`}
                             className="hover:underline"
                           >
                             Markdown
                           </a>
                           {" · "}
                           <a
-                            href={`${API_BASE}/exports/study/${exportItem.studyId}/pdf`}
+                            href={`/exports/study/${exportItem.studyId}/pdf`}
                             className="hover:underline"
                           >
                             PDF
                           </a>
                           {" · "}
                           <a
-                            href={`${API_BASE}/exports/study/${exportItem.studyId}/ppt-outline`}
+                            href={`/exports/study/${exportItem.studyId}/ppt-outline`}
                             className="hover:underline"
                           >
                             PPT outline
@@ -1788,18 +1786,18 @@ export default function ClientPortalPage() {
                         {story.summary && <p className="mt-1 text-xs text-gray-600">{story.summary}</p>}
                         <div className="mt-2 text-xs text-brand-600">
                           <a
-                            href={`${API_BASE}/exports/story/${story.id}/markdown`}
+                            href={`/exports/story/${story.id}/markdown`}
                             className="hover:underline"
                           >
                             Markdown
                           </a>
                           {" · "}
-                          <a href={`${API_BASE}/exports/story/${story.id}/pdf`} className="hover:underline">
+                          <a href={`/exports/story/${story.id}/pdf`} className="hover:underline">
                             PDF
                           </a>
                           {" · "}
                           <a
-                            href={`${API_BASE}/exports/story/${story.id}/audio-script`}
+                            href={`/exports/story/${story.id}/audio-script`}
                             className="hover:underline"
                           >
                             Audio script
@@ -1892,7 +1890,7 @@ export default function ClientPortalPage() {
         <section className="mt-6 rounded-2xl bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold">Evidence bundle</h2>
           <a
-            href={`${API_BASE}/exports/study/${data.studyIds[0]}/evidence-bundle.csv`}
+            href={`/exports/study/${data.studyIds[0]}/evidence-bundle.csv`}
             className="mt-2 inline-block text-xs text-brand-600 hover:underline"
           >
             Download CSV →
@@ -1949,7 +1947,7 @@ export default function ClientPortalPage() {
             onClick={async () => {
               if (!clientSearch.trim()) return;
               setSearchStatus("Searching...");
-              const res = await fetch(`${API_BASE}/search/insights/query`, {
+              const res = await apiFetch(`/search/insights/query`, {
                 method: "POST",
                 headers: { ...HEADERS, "Content-Type": "application/json" },
                 body: JSON.stringify({ query: clientSearch.trim(), studyId: data.studyIds?.[0] }),
@@ -1999,17 +1997,15 @@ export default function ClientPortalPage() {
                   type="button"
                   onClick={async () => {
                     if (!clipThumbnails[clip.id]) {
-                      const thumbRes = await fetch(`${API_BASE}/media/clips/${clip.id}/thumbnail`, {
-                        headers: HEADERS,
-                      });
+                      const thumbRes = await apiFetch(`/media/clips/${clip.id}/thumbnail`, {});
                       const thumb = thumbRes.ok ? await thumbRes.json() : null;
                       if (thumb?.thumbnailUrl) {
                         setClipThumbnails((prev) => ({ ...prev, [clip.id]: thumb.thumbnailUrl }));
                       }
                     }
                     const res = await fetch(
-                      `${API_BASE}/media/artifacts/${clip.mediaArtifactId}/signed-url`,
-                      { headers: HEADERS },
+                      `/media/artifacts/${clip.mediaArtifactId}/signed-url`,
+                      { },
                     );
                     const data = res.ok ? await res.json() : null;
                     setSignedUrl(data?.url ?? null);

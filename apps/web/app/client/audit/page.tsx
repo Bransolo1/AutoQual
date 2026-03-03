@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user", "x-role": "client" };
+import { useApi } from "../../lib/use-api";
 
 type AuditEvent = {
   id: string;
@@ -15,10 +13,11 @@ type AuditEvent = {
 };
 
 export default function ClientAuditPage() {
+  const { apiFetch, user } = useApi();
   const [events, setEvents] = useState<AuditEvent[]>([]);
 
   useEffect(() => {
-    fetch(`${API_BASE}/audit?workspaceId=demo-workspace-id&limit=30`, { headers: HEADERS })
+    apiFetch(`/audit?workspaceId=${user?.workspaceId ?? ""}&limit=30`))
       .then((r) => (r.ok ? r.json() : []))
       .then(setEvents);
   }, []);

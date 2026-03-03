@@ -3,9 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { TaskDrawer } from "../../../components/TaskDrawer";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
+import { useApi } from "../../lib/use-api";
 
 const columns = [
   { id: "todo", title: "To Do" },
@@ -66,13 +64,13 @@ export function ProjectBoard({
       blockedByTaskId = null;
     }
     if (status === "done") {
-      const res = await fetch(`${API_BASE}/tasks/${taskId}`, { headers: HEADERS });
+      const res = await apiFetch(`/tasks/${taskId}`));
       if (res.ok) {
         const task = await res.json();
         const deps = (task.dependencies ?? []) as string[];
         if (deps.length) {
           const depChecks = await Promise.all(
-            deps.map((depId) => fetch(`${API_BASE}/tasks/${depId}`, { headers: HEADERS })),
+            deps.map((depId) => apiFetch(`/tasks/${depId}`))),
           );
           const depStatuses = await Promise.all(depChecks.map((r) => (r.ok ? r.json() : null)));
           const incomplete = depStatuses.filter((d) => d && d.status !== "done");
@@ -83,13 +81,13 @@ export function ProjectBoard({
         }
       }
     }
-    await fetch(`${API_BASE}/tasks/${taskId}/status`, {
+    await apiFetch(`/tasks/${taskId}/status`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", ...HEADERS },
       body: JSON.stringify({
         status,
-        workspaceId: "demo-workspace-id",
-        actorUserId: "demo-user",
+        workspaceId: user?.workspaceId ?? "",
+        actorUserId: user?.sub ?? "",
         blockedReason,
         blockedByTaskId,
       }),

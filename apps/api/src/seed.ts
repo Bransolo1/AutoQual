@@ -4,6 +4,10 @@ import { DEFAULT_MILESTONES, MILESTONE_TASK_TEMPLATES } from "./modules/projects
 const prisma = new PrismaClient();
 
 async function main() {
+  if (process.env.NODE_ENV === "production") {
+    console.warn("Seed script is disabled in production. Use the workspace onboarding API instead.");
+    return;
+  }
   const DEMO_WORKSPACE_ID = "demo-workspace-id";
   const workspace = await prisma.workspace.upsert({
     where: { id: DEMO_WORKSPACE_ID },

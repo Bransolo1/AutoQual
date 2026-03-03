@@ -2,9 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
+import { useApi } from "../../lib/use-api";
 
 type Participant = {
   id: string;
@@ -18,6 +16,7 @@ type Participant = {
 };
 
 export default function RecruitmentOpsPage() {
+  const { apiFetch, user } = useApi();
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [statusFilter, setStatusFilter] = useState("flagged");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
@@ -25,8 +24,8 @@ export default function RecruitmentOpsPage() {
 
   const loadParticipants = async () => {
     const res = await fetch(
-      `${API_BASE}/participants?workspaceId=demo-workspace-id&status=${statusFilter}`,
-      { headers: HEADERS },
+      `/participants?workspaceId=${user?.workspaceId ?? ""}&status=${statusFilter}`,
+      { },
     );
     if (!res.ok) return;
     const payload = await res.json();
@@ -46,7 +45,7 @@ export default function RecruitmentOpsPage() {
   const updateBulk = async (status: "verified" | "flagged" | "rejected") => {
     if (!selectedIds.length) return;
     setBusy(true);
-    const res = await fetch(`${API_BASE}/participants/verify-bulk`, {
+    const res = await apiFetch(`/participants/verify-bulk`, {
       method: "POST",
       headers: { ...HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({ ids: selectedIds, status, fraudScore: status === "verified" ? 0 : 70 }),

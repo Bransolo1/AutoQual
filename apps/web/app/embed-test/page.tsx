@@ -1,21 +1,20 @@
 "use client";
 
 import { useState } from "react";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
+import { useApi } from "../lib/use-api";
 
 export default function EmbedTestPage() {
+  const { apiFetch, user } = useApi();
   const [studyId, setStudyId] = useState("demo-study-id");
   const [token, setToken] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
   const createToken = async () => {
     setStatus("Creating token...");
-    const response = await fetch(`${API_BASE}/embed/token`, {
+    const response = await apiFetch(`/embed/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...HEADERS },
-      body: JSON.stringify({ studyId, workspaceId: "demo-workspace-id" }),
+      body: JSON.stringify({ studyId, workspaceId: user?.workspaceId ?? "" }),
     });
     if (!response.ok) {
       setStatus("Failed to create token.");
@@ -56,7 +55,7 @@ export default function EmbedTestPage() {
           </p>
           <iframe
             title="Embed preview"
-            src={`${API_BASE}/embed/${token}`}
+            src={`/embed/${token}`}
             className="mt-4 h-[520px] w-full rounded-xl border border-gray-200"
           />
         </div>

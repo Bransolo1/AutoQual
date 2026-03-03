@@ -2,9 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
+import { useApi } from "../../lib/use-api";
 
 type BlockedTask = {
   id: string;
@@ -17,13 +15,14 @@ type BlockedTask = {
 };
 
 export default function BlockedTasksPage() {
+  const { apiFetch, user } = useApi();
   const [tasks, setTasks] = useState<BlockedTask[]>([]);
   const [query, setQuery] = useState("");
 
   const refreshTasks = () => {
-    const params = new URLSearchParams({ workspaceId: "demo-workspace-id" });
+    const params = new URLSearchParams({ workspaceId: user?.workspaceId ?? "" });
     if (query) params.set("q", query);
-    fetch(`${API_BASE}/ops/blocked?${params.toString()}`, { headers: HEADERS })
+    apiFetch(`/ops/blocked?${params.toString()}`))
       .then((r) => (r.ok ? r.json() : []))
       .then(setTasks);
   };
@@ -49,7 +48,7 @@ export default function BlockedTasksPage() {
             className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
           />
           <a
-            href={`${API_BASE}/ops/blocked.csv?workspaceId=demo-workspace-id&q=${encodeURIComponent(query)}`}
+            href={`/ops/blocked.csv?workspaceId=${user?.workspaceId ?? ""}&q=${encodeURIComponent(query)}`}
             className="rounded-full border border-brand-500 px-4 py-2 text-sm font-medium text-brand-600"
           >
             Export CSV
@@ -86,7 +85,7 @@ export default function BlockedTasksPage() {
               type="button"
               onClick={async () => {
                 if (task.blockedByTaskId) {
-                  const depRes = await fetch(`${API_BASE}/tasks/${task.blockedByTaskId}`, { headers: HEADERS });
+                  const depRes = await apiFetch(`/tasks/${task.blockedByTaskId}`));
                   if (depRes.ok) {
                     const dep = await depRes.json();
                     if (dep.status !== "done") {
@@ -95,13 +94,13 @@ export default function BlockedTasksPage() {
                     }
                   }
                 }
-                await fetch(`${API_BASE}/tasks/${task.id}/status`, {
+                await apiFetch(`/tasks/${task.id}/status`, {
                   method: "PATCH",
                   headers: { "Content-Type": "application/json", ...HEADERS },
                   body: JSON.stringify({
                     status: "in_progress",
-                    workspaceId: "demo-workspace-id",
-                    actorUserId: "demo-user",
+                    workspaceId: user?.workspaceId ?? "",
+                    actorUserId: user?.sub ?? "",
                   }),
                 });
                 refreshTasks();

@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { useApi } from "../lib/use-api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
 const STORAGE_KEY = "autoqual.studyWizard.v1";
 
 type Study = {
@@ -38,7 +37,7 @@ type WizardState = {
 };
 
 const defaultState: WizardState = {
-  workspaceId: "demo-workspace-id",
+  workspaceId: user?.workspaceId ?? "",
   projectId: "demo-project-id",
   studyId: "",
   name: "",
@@ -78,6 +77,7 @@ function safeJsonParse(value: string) {
 }
 
 export default function StudiesWizardPage() {
+  const { apiFetch, user } = useApi();
   const [wizard, setWizard] = useState<WizardState>(defaultState);
   const [step, setStep] = useState(0);
   const [studies, setStudies] = useState<Study[]>([]);
@@ -103,9 +103,7 @@ export default function StudiesWizardPage() {
   }, [wizard]);
 
   const loadStudies = async () => {
-    const res = await fetch(`${API_BASE}/studies?workspaceId=${wizard.workspaceId}`, {
-      headers: HEADERS,
-    });
+    const res = await apiFetch(`/studies?workspaceId=${wizard.workspaceId}`));
     if (!res.ok) return;
     setStudies(await res.json());
   };
@@ -122,8 +120,7 @@ export default function StudiesWizardPage() {
       return;
     }
     setStatus("Creating study...");
-    const res = await fetch(`${API_BASE}/studies`, {
-      method: "POST",
+    const res = await apiFetch(`/studies`,{method: "POST",
       headers: { ...HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({
         workspaceId: wizard.workspaceId,
@@ -155,7 +152,7 @@ export default function StudiesWizardPage() {
       return;
     }
     setGuideStatus("Generating guide...");
-    const res = await fetch(`${API_BASE}/studies/${wizard.studyId}/build`, {
+    const res = await apiFetch(`/studies/${wizard.studyId}/build`, {
       method: "POST",
       headers: { ...HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({ brief: wizard.brief }),
@@ -183,7 +180,7 @@ export default function StudiesWizardPage() {
       return;
     }
     setGuideStatus("Saving guide...");
-    const res = await fetch(`${API_BASE}/studies/${wizard.studyId}/guide`, {
+    const res = await apiFetch(`/studies/${wizard.studyId}/guide`, {
       method: "POST",
       headers: { ...HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({ guide }),
@@ -206,22 +203,22 @@ export default function StudiesWizardPage() {
     }
     setStatus("Saving recruitment settings...");
     await Promise.all([
-      fetch(`${API_BASE}/studies/${wizard.studyId}/quotas`, {
+      apiFetch(`/studies/${wizard.studyId}/quotas`, {
         method: "POST",
         headers: { ...HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify({ quotaTargets: quotas }),
       }),
-      fetch(`${API_BASE}/studies/${wizard.studyId}/recruitment`, {
+      apiFetch(`/studies/${wizard.studyId}/recruitment`, {
         method: "POST",
         headers: { ...HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify({ checklist: recruitmentChecklist }),
       }),
-      fetch(`${API_BASE}/studies/${wizard.studyId}/localization`, {
+      apiFetch(`/studies/${wizard.studyId}/localization`, {
         method: "POST",
         headers: { ...HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify({ checklist: localizationChecklist }),
       }),
-      fetch(`${API_BASE}/studies/${wizard.studyId}/build`, {
+      apiFetch(`/studies/${wizard.studyId}/build`, {
         method: "POST",
         headers: { ...HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify({ brief: wizard.brief }),
@@ -244,17 +241,17 @@ export default function StudiesWizardPage() {
     }
     setStatus("Saving activation settings...");
     await Promise.all([
-      fetch(`${API_BASE}/studies/${wizard.studyId}/activation`, {
+      apiFetch(`/studies/${wizard.studyId}/activation`, {
         method: "POST",
         headers: { ...HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify({ checklist: activationChecklist }),
       }),
-      fetch(`${API_BASE}/studies/${wizard.studyId}/rollout`, {
+      apiFetch(`/studies/${wizard.studyId}/rollout`, {
         method: "POST",
         headers: { ...HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify({ rolloutPlan }),
       }),
-      fetch(`${API_BASE}/studies/${wizard.studyId}/distribution`, {
+      apiFetch(`/studies/${wizard.studyId}/distribution`, {
         method: "POST",
         headers: { ...HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify({ distributionTracking }),
@@ -266,8 +263,8 @@ export default function StudiesWizardPage() {
   const refreshRunMetrics = async () => {
     if (!wizard.studyId) return;
     const [segmentsRes, quotaRes] = await Promise.all([
-      fetch(`${API_BASE}/studies/${wizard.studyId}/segment-summary`, { headers: HEADERS }),
-      fetch(`${API_BASE}/studies/${wizard.studyId}/quota-status`, { headers: HEADERS }),
+      apiFetch(`/studies/${wizard.studyId}/segment-summary`, {}),
+      apiFetch(`/studies/${wizard.studyId}/quota-status`)),
     ]);
     if (segmentsRes.ok) {
       const payload = await segmentsRes.json();

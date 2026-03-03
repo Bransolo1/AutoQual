@@ -3,9 +3,7 @@
 import React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
+import { useApi } from "../lib/use-api";
 
 type Approval = {
   id: string;
@@ -19,6 +17,7 @@ type Approval = {
 };
 
 export default function ApprovalsPage() {
+  const { apiFetch, user } = useApi();
   const searchParams = useSearchParams();
   const initialFilters = useMemo(() => {
     return {
@@ -46,7 +45,7 @@ export default function ApprovalsPage() {
     if (approvalId) params.set("approvalId", approvalId);
     if (statusFilter) params.set("status", statusFilter);
     if (typeFilter) params.set("linkedEntityType", typeFilter);
-    fetch(`${API_BASE}/approvals?${params.toString()}`, { headers: HEADERS })
+    apiFetch(`/approvals?${params.toString()}`))
       .then((r) => (r.ok ? r.json() : []))
       .then(setApprovals);
   }, [linkedEntityId, approvalId, statusFilter, typeFilter]);
@@ -61,7 +60,7 @@ export default function ApprovalsPage() {
     }
     Promise.all(
       insightSetIds.map(async (studyId) => {
-        const res = await fetch(`${API_BASE}/analysis/study/${studyId}/evidence-coverage`, { headers: HEADERS });
+        const res = await apiFetch(`/analysis/study/${studyId}/evidence-coverage`));
         if (!res.ok) return [studyId, 0] as const;
         const payload = (await res.json()) as { gapCount?: number };
         return [studyId, payload.gapCount ?? 0] as const;
@@ -77,37 +76,37 @@ export default function ApprovalsPage() {
     if (approvalId) params.set("approvalId", approvalId);
     if (statusFilter) params.set("status", statusFilter);
     if (typeFilter) params.set("linkedEntityType", typeFilter);
-    const refreshed = await fetch(`${API_BASE}/approvals?${params.toString()}`, { headers: HEADERS });
+    const refreshed = await apiFetch(`/approvals?${params.toString()}`));
     setApprovals(refreshed.ok ? await refreshed.json() : []);
   };
 
   const resubmitDeliverablePack = async (studyId: string) => {
     if (!studyId) return;
-    await fetch(`${API_BASE}/approvals`, {
+    await apiFetch(`/approvals`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...HEADERS },
       body: JSON.stringify({
         linkedEntityType: "deliverable_pack",
         linkedEntityId: studyId,
         status: "requested",
-        requestedByUserId: "demo-user",
-        workspaceId: "demo-workspace-id",
-        actorUserId: "demo-user",
+        requestedByUserId: user?.sub ?? "",
+        workspaceId: user?.workspaceId ?? "",
+        actorUserId: user?.sub ?? "",
       }),
     });
     await refreshApprovals();
   };
 
   const updateStatus = async (id: string, status: "approved" | "rejected") => {
-    const res = await fetch(`${API_BASE}/approvals/${id}/status`, {
+    const res = await apiFetch(`/approvals/${id}/status`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", ...HEADERS },
       body: JSON.stringify({
         status,
-        decidedByUserId: "demo-approver",
+        decidedByUserId: user?.sub ?? "",
         decisionNote: `${status} via UI`,
-        workspaceId: "demo-workspace-id",
-        actorUserId: "demo-user",
+        workspaceId: user?.workspaceId ?? "",
+        actorUserId: user?.sub ?? "",
       }),
     });
     if (!res.ok) {
@@ -201,16 +200,16 @@ export default function ApprovalsPage() {
             type="button"
             onClick={async () => {
               if (!createEntityId.trim()) return;
-              const res = await fetch(`${API_BASE}/approvals`, {
+              const res = await apiFetch(`/approvals`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", ...HEADERS },
                 body: JSON.stringify({
                   linkedEntityType: createType,
                   linkedEntityId: createEntityId.trim(),
                   status: "requested",
-                  requestedByUserId: "demo-user",
-                  workspaceId: "demo-workspace-id",
-                  actorUserId: "demo-user",
+                  requestedByUserId: user?.sub ?? "",
+                  workspaceId: user?.workspaceId ?? "",
+                  actorUserId: user?.sub ?? "",
                 }),
               });
               if (!res.ok) {
@@ -326,13 +325,13 @@ export default function ApprovalsPage() {
                       type="button"
                       onClick={async () => {
                         if (!reviewerId) return;
-                        await fetch(`${API_BASE}/reviews/${approval.linkedEntityId}/assign`, {
+                        await apiFetch(`/reviews/${approval.linkedEntityId}/assign`, {
                           method: "PATCH",
                           headers: { "Content-Type": "application/json", ...HEADERS },
                           body: JSON.stringify({
                             reviewerId,
-                            workspaceId: "demo-workspace-id",
-                            actorUserId: "demo-user",
+                            workspaceId: user?.workspaceId ?? "",
+                            actorUserId: user?.sub ?? "",
                           }),
                         });
                       }}

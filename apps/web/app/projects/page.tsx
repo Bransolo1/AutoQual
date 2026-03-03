@@ -3,9 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
+import { useApi } from "../lib/use-api";
 
 type Project = {
   id: string;
@@ -24,6 +22,7 @@ type Approval = {
 };
 
 export default function ProjectsPage() {
+  const { apiFetch, user } = useApi();
   const searchParams = useSearchParams();
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -41,18 +40,18 @@ export default function ProjectsPage() {
   const taskId = searchParams.get("taskId");
 
   useEffect(() => {
-    const params = new URLSearchParams({ workspaceId: "demo-workspace-id" });
+    const params = new URLSearchParams({ workspaceId: user?.workspaceId ?? "" });
     if (statusFilter) params.set("status", statusFilter);
     if (ownerFilter) params.set("ownerUserId", ownerFilter);
     if (query) params.set("q", query);
-    fetch(`${API_BASE}/projects?${params.toString()}`, { headers: HEADERS })
+    apiFetch(`/projects?${params.toString()}`))
       .then((r) => (r.ok ? r.json() : []))
       .then(setProjects);
   }, [statusFilter, ownerFilter, query]);
 
   useEffect(() => {
     if (!taskId) return;
-    fetch(`${API_BASE}/tasks/${taskId}`, { headers: HEADERS })
+    apiFetch(`/tasks/${taskId}`))
       .then((r) => (r.ok ? r.json() : null))
       .then((task) => {
         if (task?.projectId) {
@@ -62,7 +61,7 @@ export default function ProjectsPage() {
   }, [taskId, router]);
 
   useEffect(() => {
-    fetch(`${API_BASE}/approvals?status=requested`, { headers: HEADERS })
+    apiFetch(`/approvals?status=requested`))
       .then((r) => (r.ok ? r.json() : []))
       .then(setApprovals);
   }, []);

@@ -2,9 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
+import { useApi } from "../../lib/use-api";
 
 type OverdueTask = {
   id: string;
@@ -19,15 +17,16 @@ type Dashboard = {
 };
 
 export default function OverdueTasksPage() {
+  const { apiFetch, user } = useApi();
   const [data, setData] = useState<Dashboard | null>(null);
   const [assigneeFilter, setAssigneeFilter] = useState("");
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    const params = new URLSearchParams({ workspaceId: "demo-workspace-id" });
+    const params = new URLSearchParams({ workspaceId: user?.workspaceId ?? "" });
     if (assigneeFilter) params.set("assigneeUserId", assigneeFilter);
     if (query) params.set("q", query);
-    fetch(`${API_BASE}/ops/overdue?${params.toString()}`, { headers: HEADERS })
+    apiFetch(`/ops/overdue?${params.toString()}`))
       .then((r) => (r.ok ? r.json() : []))
       .then((overdueTaskDetails) => setData({ overdueTaskDetails }));
   }, [assigneeFilter, query]);
@@ -57,7 +56,7 @@ export default function OverdueTasksPage() {
             className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
           />
           <a
-            href={`${API_BASE}/ops/overdue.csv?workspaceId=demo-workspace-id&assigneeUserId=${encodeURIComponent(
+            href={`/ops/overdue.csv?workspaceId=${user?.workspaceId ?? ""}&assigneeUserId=${encodeURIComponent(
               assigneeFilter,
             )}&q=${encodeURIComponent(query)}`}
             className="rounded-full border border-brand-500 px-4 py-2 text-sm font-medium text-brand-600"

@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
+import { useApi } from "../lib/use-api";
 
 type Dashboard = {
   workloadByAssignee: { assignee: string; count: number }[];
@@ -57,6 +55,7 @@ type SecurityAlert = {
 };
 
 export default function OpsDashboardPage() {
+  const { apiFetch, user } = useApi();
   const [data, setData] = useState<Dashboard | null>(null);
   const [blockedFilter, setBlockedFilter] = useState("");
   const [retentionStatus, setRetentionStatus] = useState<string | null>(null);
@@ -79,7 +78,7 @@ export default function OpsDashboardPage() {
   const [alertsRefreshStatus, setAlertsRefreshStatus] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`${API_BASE}/ops/dashboard?workspaceId=demo-workspace-id`, { headers: HEADERS })
+    apiFetch(`/ops/dashboard?workspaceId=${user?.workspaceId ?? ""}`))
       .then((r) => (r.ok ? r.json() : null))
       .then((payload) => {
         setData(payload);
@@ -90,9 +89,7 @@ export default function OpsDashboardPage() {
           setAlertSummary({ lowActivation, lowFeedback });
         }
       });
-    fetch(`${API_BASE}/audit?workspaceId=demo-workspace-id&entityType=workspace&limit=5`, {
-      headers: HEADERS,
-    })
+    apiFetch(`/audit?workspaceId=${user?.workspaceId ?? ""}&entityType=workspace&limit=5`))
       .then((r) => (r.ok ? r.json() : []))
       .then((events: { action: string; createdAt: string }[]) => {
         const retention = events.find((event) => event.action.startsWith("retention."));
@@ -100,13 +97,13 @@ export default function OpsDashboardPage() {
           setLastRetention(new Date(retention.createdAt).toLocaleString());
         }
       });
-    fetch(`${API_BASE}/auth/sso/config`, { headers: HEADERS })
+    apiFetch(`/auth/sso/config`))
       .then((r) => (r.ok ? r.json() : null))
       .then(setSsoConfig);
-    fetch(`${API_BASE}/secrets/health`, { headers: HEADERS })
+    apiFetch(`/secrets/health`))
       .then((r) => (r.ok ? r.json() : null))
       .then(setSecretsHealth);
-    fetch(`${API_BASE}/ops/security-alerts?workspaceId=demo-workspace-id&limit=8`, { headers: HEADERS })
+    apiFetch(`/ops/security-alerts?workspaceId=${user?.workspaceId ?? ""}&limit=8`))
       .then((r) => (r.ok ? r.json() : []))
       .then(setSecurityAlerts);
   }, []);
@@ -143,10 +140,7 @@ export default function OpsDashboardPage() {
           <button
             type="button"
             onClick={async () => {
-              await fetch(`${API_BASE}/ops/overdue-reminders?workspaceId=demo-workspace-id`, {
-                method: "POST",
-                headers: HEADERS,
-              });
+              await apiFetch(`/ops/overdue-reminders?workspaceId=${user?.workspaceId ?? ""}`,{method: "POST"});
             }}
             className="mt-3 rounded-full border border-brand-500 px-3 py-1 text-xs font-medium text-brand-600"
           >
@@ -182,7 +176,7 @@ export default function OpsDashboardPage() {
             View all blocked →
           </Link>
           <a
-            href={`${API_BASE}/ops/blocked.csv?workspaceId=demo-workspace-id&q=${encodeURIComponent(
+            href={`/ops/blocked.csv?workspaceId=${user?.workspaceId ?? ""}&q=${encodeURIComponent(
               blockedFilter,
             )}`}
             className="mt-3 inline-block text-xs text-brand-600 hover:underline"
@@ -221,12 +215,9 @@ export default function OpsDashboardPage() {
                 type="button"
                 onClick={async () => {
                   setAlertsRefreshStatus("Scanning...");
-                  const res = await fetch(`${API_BASE}/ops/alerts/refresh?workspaceId=demo-workspace-id`, {
-                    method: "POST",
-                    headers: HEADERS,
-                  });
+                  const res = await apiFetch(`/ops/alerts/refresh?workspaceId=${user?.workspaceId ?? ""}`,{method: "POST"});
                   setAlertsRefreshStatus(res.ok ? "Alerts refreshed." : "Alert refresh failed.");
-                  const updated = res.ok ? await fetch(`${API_BASE}/ops/security-alerts?workspaceId=demo-workspace-id&limit=8`, { headers: HEADERS }) : null;
+                  const updated = res.ok ? await apiFetch(`/ops/security-alerts?workspaceId=${user?.workspaceId ?? ""}&limit=8`)) : null;
                   if (updated?.ok) {
                     setSecurityAlerts(await updated.json());
                   }
@@ -509,11 +500,10 @@ export default function OpsDashboardPage() {
                 return;
               }
               setMetricStatus("Submitting...");
-              const res = await fetch(`${API_BASE}/activation-metrics`, {
-                method: "POST",
+              const res = await apiFetch(`/activation-metrics`,{method: "POST",
                 headers: { ...HEADERS, "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  workspaceId: "demo-workspace-id",
+                  workspaceId: user?.workspaceId ?? "",
                   projectId: metricProjectId.trim(),
                   studyId: metricStudyId.trim() || undefined,
                   deliverableType: metricDeliverableType,
@@ -541,7 +531,7 @@ export default function OpsDashboardPage() {
             onChange={(event) => setBulkPayload(event.target.value)}
             className="mt-3 w-full rounded-lg border border-gray-200 p-3 text-xs"
             rows={6}
-            placeholder='{"workspaceId":"demo-workspace-id","projectId":"proj","deliverableType":"report","views":10,"shares":2,"decisionsLogged":1}'
+            placeholder='{"workspaceId":user?.workspaceId ?? "","projectId":"proj","deliverableType":"report","views":10,"shares":2,"decisionsLogged":1}'
           />
           <button
             type="button"
@@ -555,7 +545,7 @@ export default function OpsDashboardPage() {
               for (const line of lines) {
                 try {
                   const payload = JSON.parse(line);
-                  await fetch(`${API_BASE}/activation-metrics`, {
+                  await apiFetch(`/activation-metrics`, {
                     method: "POST",
                     headers: { ...HEADERS, "Content-Type": "application/json" },
                     body: JSON.stringify(payload),
@@ -581,10 +571,8 @@ export default function OpsDashboardPage() {
             type="button"
             onClick={async () => {
               setRetentionStatus("Queuing...");
-              const res = await fetch(`${API_BASE}/ops/retention-run?workspaceId=demo-workspace-id`, {
-                method: "POST",
-                headers: HEADERS,
-              });
+              const res = await apiFetch(`/ops/retention-run?workspaceId=${user?.workspaceId ?? ""}`, {
+                method: "POST"});
               setRetentionStatus(res.ok ? "Retention job queued." : "Failed to queue job.");
             }}
             className="mt-3 rounded-full border border-brand-500 px-3 py-1 text-xs font-medium text-brand-600"

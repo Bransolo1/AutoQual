@@ -3,9 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user", "x-role": "client" };
+import { useApi } from "../../lib/use-api";
 
 type ReportJson = {
   study: { id: string; name: string; status: string };
@@ -16,6 +14,7 @@ type ReportJson = {
 };
 
 export default function ClientReportsPage() {
+  const { apiFetch, user } = useApi();
   const searchParams = useSearchParams();
   const studyId = searchParams?.get("studyId") ?? "demo-study-id";
   const [report, setReport] = useState<ReportJson | null>(null);
@@ -59,37 +58,36 @@ export default function ClientReportsPage() {
   const [kpiFilter, setKpiFilter] = useState("all");
 
   useEffect(() => {
-    fetch(`${API_BASE}/exports/study/${studyId}/json`, { headers: HEADERS })
+    apiFetch(`/exports/study/${studyId}/json`))
       .then((r) => (r.ok ? r.json() : null))
       .then(setReport);
-    fetch(`${API_BASE}/exports?studyId=${studyId}`, { headers: HEADERS })
+    apiFetch(`/exports?studyId=${studyId}`))
       .then((r) => (r.ok ? r.json() : []))
       .then((exportsList: { id: string }[]) => {
         setExportsList(exportsList ?? []);
         const exportId = exportsList?.[0]?.id ?? "";
         setSelectedExportId(exportId);
       });
-    fetch(`${API_BASE}/stories?studyId=${studyId}`, { headers: HEADERS })
+    apiFetch(`/stories?studyId=${studyId}`))
       .then((r) => (r.ok ? r.json() : []))
       .then(setStories);
-    fetch(`${API_BASE}/exports/study/${studyId}/deliverables`, { headers: HEADERS })
+    apiFetch(`/exports/study/${studyId}/deliverables`))
       .then((r) => (r.ok ? r.json() : null))
       .then(setDeliverables);
-    fetch(`${API_BASE}/feedback?projectId=demo-project-id`, { headers: HEADERS })
+    apiFetch(`/feedback?projectId=demo-project-id`))
       .then((r) => (r.ok ? r.json() : []))
       .then(setFeedbackList);
-    fetch(`${API_BASE}/activation-metrics?projectId=demo-project-id`, { headers: HEADERS })
+    apiFetch(`/activation-metrics?projectId=demo-project-id`))
       .then((r) => (r.ok ? r.json() : []))
       .then(setActivationMetrics);
   }, [studyId]);
 
   const submitFeedback = async (deliverableType: "deliverable_pack" | "report" | "story") => {
     setFeedbackStatus("Submitting...");
-    const res = await fetch(`${API_BASE}/feedback`, {
-      method: "POST",
+    const res = await apiFetch(`/feedback`,{method: "POST",
       headers: { ...HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({
-        workspaceId: "demo-workspace-id",
+        workspaceId: user?.workspaceId ?? "",
         projectId: "demo-project-id",
         studyId,
         deliverableType,
@@ -103,7 +101,7 @@ export default function ClientReportsPage() {
     setFeedbackStatus(res.ok ? "Feedback submitted." : "Failed to submit feedback.");
     if (res.ok) {
       setFeedbackNote("");
-      fetch(`${API_BASE}/feedback?projectId=demo-project-id`, { headers: HEADERS })
+      apiFetch(`/feedback?projectId=demo-project-id`, {})
         .then((r) => (r.ok ? r.json() : []))
         .then(setFeedbackList);
     }
@@ -115,8 +113,8 @@ export default function ClientReportsPage() {
       return;
     }
     fetch(
-      `${API_BASE}/approvals?linkedEntityType=report&linkedEntityId=${selectedExportId}`,
-      { headers: HEADERS },
+      `/approvals?linkedEntityType=report&linkedEntityId=${selectedExportId}`,
+      { },
     )
       .then((r) => (r.ok ? r.json() : []))
       .then(setApprovals);
@@ -124,8 +122,8 @@ export default function ClientReportsPage() {
 
   useEffect(() => {
     fetch(
-      `${API_BASE}/approvals?linkedEntityType=deliverable_pack&linkedEntityId=${studyId}`,
-      { headers: HEADERS },
+      `/approvals?linkedEntityType=deliverable_pack&linkedEntityId=${studyId}`,
+      { },
     )
       .then((r) => (r.ok ? r.json() : []))
       .then(setDeliverableApprovals);
@@ -214,16 +212,16 @@ export default function ClientReportsPage() {
                       )}
                       <div className="mt-2 flex flex-wrap gap-3 text-xs text-brand-600">
                         <a
-                          href={`${API_BASE}${reportItem.downloads.markdown}`}
+                          href={`${reportItem.downloads.markdown}`}
                           className="hover:underline"
                         >
                           Markdown
                         </a>
-                        <a href={`${API_BASE}${reportItem.downloads.pdf}`} className="hover:underline">
+                        <a href={`${reportItem.downloads.pdf}`} className="hover:underline">
                           PDF
                         </a>
                         <a
-                          href={`${API_BASE}${reportItem.downloads.pptOutline}`}
+                          href={`${reportItem.downloads.pptOutline}`}
                           className="hover:underline"
                         >
                           PPT outline
@@ -245,14 +243,14 @@ export default function ClientReportsPage() {
                       {story.type} · {story.title}
                       {story.createdAt && <span> · {new Date(story.createdAt).toLocaleDateString()}</span>}
                       <div className="mt-2 flex flex-wrap gap-3 text-xs text-brand-600">
-                        <a href={`${API_BASE}${story.downloads.markdown}`} className="hover:underline">
+                        <a href={`${story.downloads.markdown}`} className="hover:underline">
                           Markdown
                         </a>
-                        <a href={`${API_BASE}${story.downloads.pdf}`} className="hover:underline">
+                        <a href={`${story.downloads.pdf}`} className="hover:underline">
                           PDF
                         </a>
                         <a
-                          href={`${API_BASE}${story.downloads.audioScript}`}
+                          href={`${story.downloads.audioScript}`}
                           className="hover:underline"
                         >
                           Audio script
@@ -446,16 +444,16 @@ export default function ClientReportsPage() {
                 <pre className="mt-3 whitespace-pre-wrap text-xs text-gray-700">{story.content}</pre>
                 <div className="mt-3 flex flex-wrap gap-3 text-xs text-brand-600">
                   <a
-                    href={`${API_BASE}/exports/story/${story.id}/markdown`}
+                    href={`/exports/story/${story.id}/markdown`}
                     className="hover:underline"
                   >
                     Markdown
                   </a>
-                  <a href={`${API_BASE}/exports/story/${story.id}/pdf`} className="hover:underline">
+                  <a href={`/exports/story/${story.id}/pdf`} className="hover:underline">
                     PDF
                   </a>
                   <a
-                    href={`${API_BASE}/exports/story/${story.id}/audio-script`}
+                    href={`/exports/story/${story.id}/audio-script`}
                     className="hover:underline"
                   >
                     Audio script
@@ -499,17 +497,15 @@ export default function ClientReportsPage() {
                     type="button"
                     onClick={async () => {
                       if (!clipThumbnails[clip.id]) {
-                        const thumbRes = await fetch(`${API_BASE}/media/clips/${clip.id}/thumbnail`, {
-                          headers: HEADERS,
-                        });
+                        const thumbRes = await apiFetch(`/media/clips/${clip.id}/thumbnail`));
                         const thumb = thumbRes.ok ? await thumbRes.json() : null;
                         if (thumb?.thumbnailUrl) {
                           setClipThumbnails((prev) => ({ ...prev, [clip.id]: thumb.thumbnailUrl }));
                         }
                       }
                       const res = await fetch(
-                        `${API_BASE}/media/artifacts/${clip.mediaArtifactId}/signed-url`,
-                        { headers: HEADERS },
+                        `/media/artifacts/${clip.mediaArtifactId}/signed-url`,
+                        { },
                       );
                       const data = res.ok ? await res.json() : null;
                       setClipUrl(data?.url ?? null);
@@ -530,13 +526,13 @@ export default function ClientReportsPage() {
             ))}
           </ul>
           <a
-            href={`${API_BASE}/exports/study/${studyId}/pdf`}
+            href={`/exports/study/${studyId}/pdf`}
             className="mt-3 inline-block text-xs text-brand-600 hover:underline"
           >
             Download PDF →
           </a>
           <a
-            href={`${API_BASE}/exports/study/${studyId}/evidence-bundle.csv`}
+            href={`/exports/study/${studyId}/evidence-bundle.csv`}
             className="mt-3 inline-block text-xs text-brand-600 hover:underline"
           >
             Download evidence bundle →

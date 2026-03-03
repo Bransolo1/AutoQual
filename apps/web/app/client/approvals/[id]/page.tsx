@@ -3,9 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user", "x-role": "client" };
+import { useApi } from "../../../lib/use-api";
 
 type Approval = {
   id: string;
@@ -22,6 +20,7 @@ type Deliverables = {
 };
 
 export default function ClientApprovalDetailPage() {
+  const { apiFetch, user } = useApi();
   const params = useParams();
   const id = params?.id as string | undefined;
   const [approval, setApproval] = useState<Approval | null>(null);
@@ -32,13 +31,13 @@ export default function ClientApprovalDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    fetch(`${API_BASE}/approvals?approvalId=${id}`, { headers: HEADERS })
+    apiFetch(`/approvals?approvalId=${id}`))
       .then((r) => (r.ok ? r.json() : []))
       .then((results) => {
         const next = results?.[0] ?? null;
         setApproval(next);
         if (next?.linkedEntityType === "deliverable_pack") {
-          fetch(`${API_BASE}/exports/study/${next.linkedEntityId}/deliverables`, { headers: HEADERS })
+          apiFetch(`/exports/study/${next.linkedEntityId}/deliverables`))
             .then((r) => (r.ok ? r.json() : null))
             .then(setDeliverables);
         }
@@ -48,8 +47,7 @@ export default function ClientApprovalDetailPage() {
   const decide = async (nextStatus: "approved" | "rejected") => {
     if (!approval) return;
     setStatus("Submitting...");
-    const res = await fetch(`${API_BASE}/approvals/${approval.id}/status`, {
-      method: "PATCH",
+    const res = await apiFetch(`/approvals/${approval.id}/status`,{method: "PATCH",
       headers: { "Content-Type": "application/json", ...HEADERS },
       body: JSON.stringify({ status: nextStatus, decisionNote }),
     });
@@ -59,7 +57,7 @@ export default function ClientApprovalDetailPage() {
     }
     setStatus("Decision submitted.");
     setLastDecision(nextStatus);
-    fetch(`${API_BASE}/approvals?approvalId=${approval.id}`, { headers: HEADERS })
+    apiFetch(`/approvals?approvalId=${approval.id}`, {})
       .then((r) => (r.ok ? r.json() : []))
       .then((results) => setApproval(results?.[0] ?? null));
   };
@@ -96,16 +94,16 @@ export default function ClientApprovalDetailPage() {
                         {report.type ?? "report"} · {report.id}
                         <div className="mt-2 flex flex-wrap gap-3 text-xs text-brand-600">
                           <a
-                            href={`${API_BASE}${report.downloads.markdown}`}
+                            href={`${report.downloads.markdown}`}
                             className="hover:underline"
                           >
                             Markdown
                           </a>
-                          <a href={`${API_BASE}${report.downloads.pdf}`} className="hover:underline">
+                          <a href={`${report.downloads.pdf}`} className="hover:underline">
                             PDF
                           </a>
                           <a
-                            href={`${API_BASE}${report.downloads.pptOutline}`}
+                            href={`${report.downloads.pptOutline}`}
                             className="hover:underline"
                           >
                             PPT outline
@@ -126,14 +124,14 @@ export default function ClientApprovalDetailPage() {
                       <li key={story.id} className="rounded-lg border border-gray-100 p-2">
                         {story.type} · {story.title}
                         <div className="mt-2 flex flex-wrap gap-3 text-xs text-brand-600">
-                          <a href={`${API_BASE}${story.downloads.markdown}`} className="hover:underline">
+                          <a href={`${story.downloads.markdown}`} className="hover:underline">
                             Markdown
                           </a>
-                          <a href={`${API_BASE}${story.downloads.pdf}`} className="hover:underline">
+                          <a href={`${story.downloads.pdf}`} className="hover:underline">
                             PDF
                           </a>
                           <a
-                            href={`${API_BASE}${story.downloads.audioScript}`}
+                            href={`${story.downloads.audioScript}`}
                             className="hover:underline"
                           >
                             Audio script

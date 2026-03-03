@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
+import { useApi } from "../lib/use-api";
 
 type WorkspaceSettings = {
   id: string;
@@ -60,6 +58,7 @@ type AccessReview = {
 };
 
 export default function SettingsPage() {
+  const { apiFetch, user } = useApi();
   const [settings, setSettings] = useState<WorkspaceSettings | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [lastRetention, setLastRetention] = useState<string | null>(null);
@@ -100,28 +99,24 @@ export default function SettingsPage() {
   const [accessReviewStatus, setAccessReviewStatus] = useState<string | null>(null);
 
   const loadSettings = async () => {
-    const res = await fetch(`${API_BASE}/workspaces/demo-workspace-id`, { headers: HEADERS });
+    const res = await apiFetch(`/workspaces/${user?.workspaceId ?? ""}`));
     setSettings(res.ok ? await res.json() : null);
   };
 
   const loadUsers = async () => {
-    const res = await fetch(`${API_BASE}/users?workspaceId=demo-workspace-id`, { headers: HEADERS });
+    const res = await apiFetch(`/users?workspaceId=${user?.workspaceId ?? ""}`));
     if (!res.ok) return;
     setUsers(await res.json());
   };
 
   const loadAccessReviews = async () => {
-    const res = await fetch(`${API_BASE}/access-reviews?workspaceId=demo-workspace-id&limit=10`, {
-      headers: HEADERS,
-    });
+    const res = await apiFetch(`/access-reviews?workspaceId=${user?.workspaceId ?? ""}&limit=10`));
     if (!res.ok) return;
     setAccessReviews(await res.json());
   };
 
   const loadTrustArtifacts = async () => {
-    const res = await fetch(`${API_BASE}/trust-center/artifacts?workspaceId=demo-workspace-id`, {
-      headers: HEADERS,
-    });
+    const res = await apiFetch(`/trust-center/artifacts?workspaceId=${user?.workspaceId ?? ""}`));
     if (!res.ok) return;
     setTrustArtifacts(await res.json());
   };
@@ -129,7 +124,7 @@ export default function SettingsPage() {
   useEffect(() => {
     loadSettings();
     loadTrustArtifacts();
-    fetch(`${API_BASE}/audit?workspaceId=demo-workspace-id&entityType=workspace&limit=5`, { headers: HEADERS })
+    apiFetch(`/audit?workspaceId=${user?.workspaceId ?? ""}&entityType=workspace&limit=5`))
       .then((r) => (r.ok ? r.json() : []))
       .then((events: { action: string; createdAt: string }[]) => {
         const retention = events.find((event) => event.action.startsWith("retention."));
@@ -137,10 +132,10 @@ export default function SettingsPage() {
           setLastRetention(new Date(retention.createdAt).toLocaleString());
         }
       });
-    fetch(`${API_BASE}/auth/sso/config`, { headers: HEADERS })
+    apiFetch(`/auth/sso/config`))
       .then((r) => (r.ok ? r.json() : null))
       .then(setSsoConfig);
-    fetch(`${API_BASE}/secrets/health`, { headers: HEADERS })
+    apiFetch(`/secrets/health`))
       .then((r) => (r.ok ? r.json() : null))
       .then(setSecretsHealth);
     loadRevokedTokens({ reset: true });
@@ -157,8 +152,7 @@ export default function SettingsPage() {
   const updateSettings = async () => {
     if (!settings) return;
     setStatus("Saving...");
-    const res = await fetch(`${API_BASE}/workspaces/${settings.id}/settings`, {
-      method: "PATCH",
+    const res = await apiFetch(`/workspaces/${settings.id}/settings`,{method: "PATCH",
       headers: { ...HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({
         retentionDays: settings.retentionDays,
@@ -177,11 +171,11 @@ export default function SettingsPage() {
 
   const createTrustArtifact = async () => {
     if (!artifactFilename.trim() || !artifactStorageKey.trim()) return;
-    const res = await fetch(`${API_BASE}/trust-center/artifacts`, {
+    const res = await apiFetch(`/trust-center/artifacts`, {
       method: "POST",
       headers: { ...HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({
-        workspaceId: "demo-workspace-id",
+        workspaceId: user?.workspaceId ?? "",
         category: artifactCategory,
         status: artifactStatus,
         filename: artifactFilename.trim(),
@@ -199,7 +193,7 @@ export default function SettingsPage() {
   };
 
   const updateArtifactStatus = async (id: string, status: string) => {
-    const res = await fetch(`${API_BASE}/trust-center/artifacts/${id}`, {
+    const res = await apiFetch(`/trust-center/artifacts/${id}`, {
       method: "PATCH",
       headers: { ...HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
@@ -211,7 +205,7 @@ export default function SettingsPage() {
 
   const generateArtifactUploadUrl = async () => {
     if (!artifactStorageKey.trim()) return;
-    const res = await fetch(`${API_BASE}/trust-center/upload-url`, {
+    const res = await apiFetch(`/trust-center/upload-url`, {
       method: "POST",
       headers: { ...HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({ storageKey: artifactStorageKey.trim(), contentType: artifactContentType }),
@@ -224,12 +218,12 @@ export default function SettingsPage() {
   const revokeToken = async () => {
     if (!revokeJti.trim()) return;
     setRevokeStatus("Revoking...");
-    const res = await fetch(`${API_BASE}/auth/tokens/revoke`, {
+    const res = await apiFetch(`/auth/tokens/revoke`, {
       method: "POST",
       headers: { ...HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({
-        workspaceId: "demo-workspace-id",
-        actorUserId: "demo-user",
+        workspaceId: user?.workspaceId ?? "",
+        actorUserId: user?.sub ?? "",
         jti: revokeJti.trim(),
         expiresAt: new Date(revokeExpiresAt).toISOString(),
         reason: revokeReason.trim() || undefined,
@@ -246,7 +240,7 @@ export default function SettingsPage() {
     setRevokedLoading(true);
     setRevokedError(null);
     const params = new URLSearchParams({
-      workspaceId: "demo-workspace-id",
+      workspaceId: user?.workspaceId ?? "",
       status: revokedStatus,
     });
     if (revokedQuery.trim()) params.set("q", revokedQuery.trim());
@@ -254,9 +248,7 @@ export default function SettingsPage() {
     if (!reset && revokedCursor) params.set("cursor", revokedCursor);
     params.set("limit", "20");
 
-    const res = await fetch(`${API_BASE}/auth/tokens/revoked?${params.toString()}`, {
-      headers: HEADERS,
-    });
+    const res = await apiFetch(`/auth/tokens/revoked?${params.toString()}`, {});
     if (!res.ok) {
       setRevokedError("Failed to load revoked tokens.");
       setRevokedLoading(false);
@@ -271,10 +263,7 @@ export default function SettingsPage() {
 
   const purgeRevokedTokens = async () => {
     setPurgeStatus("Purging expired tokens...");
-    const res = await fetch(`${API_BASE}/auth/tokens/purge`, {
-      method: "POST",
-      headers: HEADERS,
-    });
+    const res = await apiFetch(`/auth/tokens/purge`,{method: "POST"});
     setPurgeStatus(res.ok ? "Expired tokens purged." : "Failed to purge tokens.");
     if (res.ok) {
       await loadRevokedTokens({ reset: true });
@@ -283,8 +272,7 @@ export default function SettingsPage() {
 
   const updateUserRoles = async (userId: string, roles: string[]) => {
     setRoleStatus("Updating roles...");
-    const res = await fetch(`${API_BASE}/users/${userId}/roles`, {
-      method: "POST",
+    const res = await apiFetch(`/users/${userId}/roles`,{method: "POST",
       headers: { ...HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({ roles }),
     });
@@ -300,12 +288,12 @@ export default function SettingsPage() {
       .split(",")
       .map((item) => item.trim())
       .filter(Boolean);
-    const res = await fetch(`${API_BASE}/access-reviews`, {
+    const res = await apiFetch(`/access-reviews`, {
       method: "POST",
       headers: { ...HEADERS, "Content-Type": "application/json" },
       body: JSON.stringify({
-        workspaceId: "demo-workspace-id",
-        reviewerUserId: "demo-user",
+        workspaceId: user?.workspaceId ?? "",
+        reviewerUserId: user?.sub ?? "",
         notes: accessReviewNotes.trim() || undefined,
         reviewedUserIds,
       }),
@@ -617,7 +605,7 @@ export default function SettingsPage() {
                           <option value="expired">Expired</option>
                         </select>
                         <a
-                          href={`${API_BASE}/trust-center/artifacts/${artifact.id}/signed-url`}
+                          href={`/trust-center/artifacts/${artifact.id}/signed-url`}
                           className="text-brand-600 hover:underline"
                         >
                           Download
@@ -909,13 +897,11 @@ export default function SettingsPage() {
             onClick={async () => {
               setRetentionConfigStatus("Running retention...");
               const params = new URLSearchParams({
-                workspaceId: "demo-workspace-id",
+                workspaceId: user?.workspaceId ?? "",
                 retentionDays: auditRetentionDays,
               });
-              const res = await fetch(`${API_BASE}/audit/retention-run?${params.toString()}`, {
-                method: "POST",
-                headers: HEADERS,
-              });
+              const res = await apiFetch(`/audit/retention-run?${params.toString()}`, {
+                method: "POST"});
               setRetentionConfigStatus(res.ok ? "Retention executed." : "Retention failed.");
             }}
             className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white"

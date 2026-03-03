@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
+import { useApi } from "../../lib/use-api";
 
 type AlertEvent = {
   id: string;
@@ -22,6 +20,7 @@ type AlertView = {
 };
 
 export default function OpsAlertsPage() {
+  const { apiFetch, user } = useApi();
   const [alerts, setAlerts] = useState<AlertEvent[]>([]);
   const [filter, setFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("");
@@ -33,27 +32,27 @@ export default function OpsAlertsPage() {
   const [viewStatus, setViewStatus] = useState<string | null>(null);
 
   const loadAlerts = async () => {
-    const params = new URLSearchParams({ workspaceId: "demo-workspace-id", limit: "200" });
+    const params = new URLSearchParams({ workspaceId: user?.workspaceId ?? "", limit: "200" });
     if (filter !== "all") params.set("severity", filter);
     if (typeFilter.trim()) params.set("type", typeFilter.trim());
     if (fromDate) params.set("from", new Date(fromDate).toISOString());
     if (toDate) params.set("to", new Date(toDate).toISOString());
-    const res = await fetch(`${API_BASE}/alerts?${params.toString()}`, { headers: HEADERS });
+    const res = await apiFetch(`/alerts?${params.toString()}`));
     setAlerts(res.ok ? await res.json() : []);
   };
 
   const loadViews = async () => {
-    const res = await fetch(`${API_BASE}/alerts/views?workspaceId=demo-workspace-id`, { headers: HEADERS });
+    const res = await apiFetch(`/alerts/views?workspaceId=${user?.workspaceId ?? ""}`));
     setViews(res.ok ? await res.json() : []);
   };
 
   const exportUrl = (() => {
-    const params = new URLSearchParams({ workspaceId: "demo-workspace-id" });
+    const params = new URLSearchParams({ workspaceId: user?.workspaceId ?? "" });
     if (filter !== "all") params.set("severity", filter);
     if (typeFilter.trim()) params.set("type", typeFilter.trim());
     if (fromDate) params.set("from", new Date(fromDate).toISOString());
     if (toDate) params.set("to", new Date(toDate).toISOString());
-    return `${API_BASE}/alerts/export.csv?${params.toString()}`;
+    return `/alerts/export.csv?${params.toString()}`;
   })();
 
   useEffect(() => {
@@ -202,13 +201,12 @@ export default function OpsAlertsPage() {
             onClick={async () => {
               if (!viewName.trim()) return;
               setViewStatus("Saving...");
-              const res = await fetch(`${API_BASE}/alerts/views`, {
-                method: "POST",
+              const res = await apiFetch(`/alerts/views`,{method: "POST",
                 headers: { ...HEADERS, "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  workspaceId: "demo-workspace-id",
+                  workspaceId: user?.workspaceId ?? "",
                   name: viewName.trim(),
-                  createdByUserId: "demo-user",
+                  createdByUserId: user?.sub ?? "",
                   filters: {
                     severity: filter === "all" ? null : filter,
                     type: typeFilter.trim() || null,
@@ -232,10 +230,8 @@ export default function OpsAlertsPage() {
               type="button"
               onClick={async () => {
                 setViewStatus("Deleting...");
-                const res = await fetch(`${API_BASE}/alerts/views/${selectedViewId}`, {
-                  method: "DELETE",
-                  headers: HEADERS,
-                });
+                const res = await apiFetch(`/alerts/views/${selectedViewId}`, {
+                  method: "DELETE"});
                 setViewStatus(res.ok ? "View deleted." : "Failed to delete view.");
                 if (res.ok) {
                   setSelectedViewId("");

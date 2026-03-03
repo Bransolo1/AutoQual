@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { ReactNode } from "react";
-import { bearerHeader, getSessionUser } from "../lib/session";
+import { bearerHeader, getSessionToken, getSessionUser } from "../lib/session";
+import { TokenProvider } from "../lib/token-context";
 
 export const metadata = {
   title: "Sensehub Auto Qual",
@@ -27,6 +28,7 @@ async function getUnreadCount() {
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const unreadCount = await getUnreadCount();
   const user = getSessionUser();
+  const token = getSessionToken();
   return (
     <html lang="en">
       <body>
@@ -36,33 +38,14 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               Sensehub Auto Qual
             </a>
             <nav className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-              <a href="/projects" className="hover:text-slate-950">
-                Projects
-              </a>
-              <a href="/studies" className="hover:text-slate-950">
-                Studies
-              </a>
-              <a href="/insights" className="hover:text-slate-950">
-                Insights
-              </a>
-              <a href="/approvals" className="hover:text-slate-950">
-                Approvals
-              </a>
-              <a href="/reports" className="hover:text-slate-950">
-                Reports
-              </a>
-              <a href="/search" className="hover:text-slate-950">
-                Search
-              </a>
-              <a href="/settings" className="hover:text-slate-950">
-                Settings
-              </a>
-              <a href="/demo" className="hover:text-slate-950">
-                Demo
-              </a>
-              <a href="/audit" className="hover:text-slate-950">
-                Audit Log
-              </a>
+              <a href="/projects" className="hover:text-slate-950">Projects</a>
+              <a href="/studies" className="hover:text-slate-950">Studies</a>
+              <a href="/insights" className="hover:text-slate-950">Insights</a>
+              <a href="/approvals" className="hover:text-slate-950">Approvals</a>
+              <a href="/reports" className="hover:text-slate-950">Reports</a>
+              <a href="/search" className="hover:text-slate-950">Search</a>
+              <a href="/settings" className="hover:text-slate-950">Settings</a>
+              <a href="/audit" className="hover:text-slate-950">Audit Log</a>
               <a href="/notifications" className="relative hover:text-slate-950">
                 Notifications
                 {unreadCount > 0 && (
@@ -70,9 +53,6 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     {unreadCount}
                   </span>
                 )}
-              </a>
-              <a href="/embed-test" className="hover:text-slate-950">
-                Embed Test
               </a>
               {user ? (
                 <span className="flex items-center gap-3">
@@ -95,11 +75,17 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             </nav>
           </div>
         </header>
-        {children}
+        <TokenProvider token={token}>
+          {children}
+        </TokenProvider>
         <footer className="mt-12 border-t border-gray-200 bg-white/80">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-8 py-6 text-xs text-gray-500">
             <span>Enterprise qual platform with delivery governance.</span>
-            <span>Need help? Use the Embed Test for troubleshooting.</span>
+            <div className="flex gap-4">
+              <a href="/legal/terms" className="hover:text-slate-700">Terms</a>
+              <a href="/legal/privacy" className="hover:text-slate-700">Privacy</a>
+              <a href="/help" className="hover:text-slate-700">Help</a>
+            </div>
           </div>
         </footer>
       </body>

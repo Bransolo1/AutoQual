@@ -1,9 +1,7 @@
 \"use client\";
 
+import { bearerHeader } from "../../lib/session";
 import React, { useEffect, useState } from \"react\";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? \"http://localhost:4000\";
-const HEADERS = { \"x-workspace-id\": \"demo-workspace-id\", \"x-user-id\": \"demo-user\" };
 
 type Story = {
   id: string;
@@ -26,7 +24,7 @@ export default function StoriesPage() {
   const [exportStatus, setExportStatus] = useState<string | null>(null);
 
   const loadStories = async () => {
-    const res = await fetch(`${API_BASE}/stories?studyId=${studyId}`, { headers: HEADERS });
+    const res = await fetch(`${API_BASE}/stories?studyId=${studyId}`, { ...bearerHeader() });
     if (!res.ok) return;
     setStories(await res.json());
   };
@@ -87,7 +85,7 @@ export default function StoriesPage() {
 
   const exportStory = async (storyId: string, exportType: \"showreel\" | \"podcast\" | \"slide\") => {
     setExportStatus(`Preparing ${exportType} export...`);
-    const res = await fetch(`${API_BASE}/stories/${storyId}/export/${exportType}`, { headers: HEADERS });
+    const res = await fetch(`${API_BASE}/stories/${storyId}/export/${exportType}`, { ...bearerHeader() });
     if (!res.ok) {
       setExportStatus(`Failed to export ${exportType}.`);
       return;

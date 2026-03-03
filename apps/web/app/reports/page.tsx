@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
+import { useApi } from "../lib/use-api";
 
 type ReportJson = {
   study: { id: string; name: string; status: string };
@@ -15,6 +13,7 @@ type ReportJson = {
 };
 
 export default function ReportsPage() {
+  const { apiFetch, user } = useApi();
   const [studyId, setStudyId] = useState("demo-study-id");
   const [markdown, setMarkdown] = useState("");
   const [json, setJson] = useState<ReportJson | null>(null);
@@ -31,10 +30,10 @@ export default function ReportsPage() {
   const loadReport = async () => {
     setStatus("Loading report...");
     const [mdRes, jsonRes, pptRes, recapRes] = await Promise.all([
-      fetch(`${API_BASE}/exports/study/${studyId}/markdown`, { headers: HEADERS }),
-      fetch(`${API_BASE}/exports/study/${studyId}/json`, { headers: HEADERS }),
-      fetch(`${API_BASE}/exports/study/${studyId}/ppt-outline`, { headers: HEADERS }),
-      fetch(`${API_BASE}/exports/study/${studyId}/audio-recap`, { headers: HEADERS }),
+      apiFetch(`/exports/study/${studyId}/markdown`)),
+      apiFetch(`/exports/study/${studyId}/json`)),
+      apiFetch(`/exports/study/${studyId}/ppt-outline`)),
+      apiFetch(`/exports/study/${studyId}/audio-recap`)),
     ]);
 
     if (!mdRes.ok || !jsonRes.ok || !pptRes.ok || !recapRes.ok) {
@@ -47,20 +46,20 @@ export default function ReportsPage() {
     setPptOutline((pptPayload?.slides ?? []).map((slide: { title: string }) => slide.title));
     const recapPayload = await recapRes.json();
     setAudioRecap(recapPayload?.script ?? "");
-    const bundleRes = await fetch(`${API_BASE}/exports/study/${studyId}/evidence-bundle`, { headers: HEADERS });
+    const bundleRes = await apiFetch(`/exports/study/${studyId}/evidence-bundle`));
     const bundlePayload = bundleRes.ok ? await bundleRes.json() : null;
     setEvidenceBundle(
       (bundlePayload?.clips ?? []).map((clip: { id: string; storageKey: string }) =>
         `${clip.id} · ${clip.storageKey}`,
       ),
     );
-    const exportsRes = await fetch(`${API_BASE}/exports?studyId=${studyId}`, { headers: HEADERS });
+    const exportsRes = await apiFetch(`/exports?studyId=${studyId}`));
     const exportsList = exportsRes.ok ? await exportsRes.json() : [];
     const latestExport = exportsList?.[0];
     if (latestExport?.id) {
       const approvalsRes = await fetch(
-        `${API_BASE}/approvals?linkedEntityType=report&linkedEntityId=${latestExport.id}`,
-        { headers: HEADERS },
+        `/approvals?linkedEntityType=report&linkedEntityId=${latestExport.id}`,
+        { },
       );
       setReportApprovals(approvalsRes.ok ? await approvalsRes.json() : []);
     } else {
@@ -152,17 +151,15 @@ export default function ReportsPage() {
                     type="button"
                     onClick={async () => {
                       if (!clipThumbnails[clip.id]) {
-                        const thumbRes = await fetch(`${API_BASE}/media/clips/${clip.id}/thumbnail`, {
-                          headers: HEADERS,
-                        });
+                        const thumbRes = await apiFetch(`/media/clips/${clip.id}/thumbnail`));
                         const thumb = thumbRes.ok ? await thumbRes.json() : null;
                         if (thumb?.thumbnailUrl) {
                           setClipThumbnails((prev) => ({ ...prev, [clip.id]: thumb.thumbnailUrl }));
                         }
                       }
                       const res = await fetch(
-                        `${API_BASE}/media/artifacts/${clip.mediaArtifactId}/signed-url`,
-                        { headers: HEADERS },
+                        `/media/artifacts/${clip.mediaArtifactId}/signed-url`,
+                        { },
                       );
                       const data = res.ok ? await res.json() : null;
                       setClipUrl(data?.url ?? null);
@@ -240,7 +237,7 @@ export default function ReportsPage() {
         <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Evidence bundle</h2>
           <a
-            href={`${API_BASE}/exports/study/${studyId}/evidence-bundle.csv`}
+            href={`/exports/study/${studyId}/evidence-bundle.csv`}
             className="mt-2 inline-block text-xs text-brand-600 hover:underline"
           >
             Download CSV →
@@ -257,7 +254,7 @@ export default function ReportsPage() {
 
       {markdown && (
         <a
-          href={`${API_BASE}/exports/study/${studyId}/pdf`}
+          href={`/exports/study/${studyId}/pdf`}
           className="mt-6 inline-block text-xs text-brand-600 hover:underline"
         >
           Download PDF →

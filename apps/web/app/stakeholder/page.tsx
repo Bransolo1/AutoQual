@@ -1,9 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
+import { useApi } from "../lib/use-api";
 
 type ClientView = {
   projectId: string;
@@ -23,6 +21,7 @@ type Story = {
 };
 
 export default function StakeholderPage() {
+  const { apiFetch, user } = useApi();
   const [projectId, setProjectId] = useState("");
   const [studyId, setStudyId] = useState("");
   const [clientView, setClientView] = useState<ClientView | null>(null);
@@ -31,13 +30,13 @@ export default function StakeholderPage() {
 
   const loadClientView = async () => {
     if (!projectId) return;
-    const res = await fetch(`${API_BASE}/projects/${projectId}/client-view`, { headers: HEADERS });
+    const res = await apiFetch(`/projects/${projectId}/client-view`));
     setClientView(res.ok ? await res.json() : null);
   };
 
   const loadStories = async () => {
     if (!studyId) return;
-    const res = await fetch(`${API_BASE}/stories?studyId=${studyId}`, { headers: HEADERS });
+    const res = await apiFetch(`/stories?studyId=${studyId}`));
     setStories(res.ok ? await res.json() : []);
   };
 
@@ -130,10 +129,10 @@ export default function StakeholderPage() {
                 <div className="mt-1 text-xs text-gray-500">{story.type}</div>
                 {story.summary && <div className="mt-2 text-xs text-gray-500">{story.summary}</div>}
                 <div className="mt-2 flex flex-wrap gap-3 text-xs">
-                  <a className="text-brand-600 hover:underline" href={`${API_BASE}/stories/${story.id}/markdown`}>
+                  <a className="text-brand-600 hover:underline" href={`/stories/${story.id}/markdown`}>
                     Markdown
                   </a>
-                  <a className="text-brand-600 hover:underline" href={`${API_BASE}/stories/${story.id}/pdf`}>
+                  <a className="text-brand-600 hover:underline" href={`/stories/${story.id}/pdf`}>
                     PDF
                   </a>
                 </div>

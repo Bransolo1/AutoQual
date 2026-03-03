@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
+import { useApi } from "../lib/use-api";
 
 type Notification = {
   id: string;
@@ -49,16 +47,17 @@ const getApprovalLink = (notification: Notification) => {
 };
 
 export default function NotificationsPage() {
+  const { apiFetch, user } = useApi();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("unread");
 
   const loadNotifications = async () => {
-    const params = new URLSearchParams({ userId: "demo-user", limit: "50" });
+    const params = new URLSearchParams({ userId: user?.sub ?? "", limit: "50" });
     if (typeFilter) params.set("type", typeFilter);
     if (statusFilter === "unread") params.set("unread", "true");
     if (statusFilter === "read") params.set("unread", "false");
-    const response = await fetch(`${API_BASE}/notifications?${params.toString()}`, { headers: HEADERS });
+    const response = await apiFetch(`/notifications?${params.toString()}`));
     setNotifications(response.ok ? await response.json() : []);
   };
 
@@ -180,7 +179,7 @@ export default function NotificationsPage() {
                 <button
                   type="button"
                   onClick={async () => {
-                    await fetch(`${API_BASE}/notifications/${notification.id}/read`, {
+                    await apiFetch(`/notifications/${notification.id}/read`, {
                       method: "PATCH",
                       headers: { "Content-Type": "application/json", ...HEADERS },
                     });
