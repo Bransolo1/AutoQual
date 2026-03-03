@@ -61,6 +61,13 @@ export class WorkspacesController {
     return this.workspacesService.revokeInvitation(id, inviteId);
   }
 
+  /** Preview invitation details without requiring auth (for the accept page). */
+  @Get("invitations/:token/preview")
+  @Public()
+  previewInvitation(@Param("token") token: string) {
+    return this.workspacesService.previewInvitation(token);
+  }
+
   @Post("invitations/:token/accept")
   @Public()
   acceptInvitation(@Param("token") token: string, @Req() req: Request) {

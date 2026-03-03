@@ -2,9 +2,12 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { QueueService } from "../../queue/queue.service";
 import { UpdateWorkspaceSettingsInput } from "./workspaces.dto";
+import { EmailService, invitationEmail, welcomeEmail } from "@sensehub/email";
 
 @Injectable()
 export class WorkspacesService {
+  private readonly email = new EmailService();
+
   constructor(private readonly prisma: PrismaService, private readonly queueService: QueueService) {}
 
   async get(workspaceId: string) {
@@ -66,21 +69,16 @@ export class WorkspacesService {
 
     const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14-day trial
 
-    return this.prisma.$transaction(async (tx) => {
-      const workspace = await tx.workspace.create({
-        data: {
-          name: input.name,
-          slug,
-          billingStatus: "trialing",
-          trialEndsAt,
-        },
+    const workspace = await this.prisma.$transaction(async (tx) => {
+      const ws = await tx.workspace.create({
+        data: { name: input.name, slug, billingStatus: "trialing", trialEndsAt },
       });
 
       // Provision the creator as admin if we have their identity
       if (ownerEmail) {
         const user = await tx.user.upsert({
           where: { email: ownerEmail },
-          create: { email: ownerEmail, name: ownerEmail.split("@")[0], workspaceId: workspace.id },
+          create: { email: ownerEmail, name: ownerEmail.split("@")[0], workspaceId: ws.id },
           update: {},
         });
         await tx.roleAssignment.upsert({
@@ -88,7 +86,6 @@ export class WorkspacesService {
           create: { id: `${user.id}-admin`, userId: user.id, role: "admin" },
           update: {},
         }).catch(async () => {
-          // Fallback if id-based upsert fails
           const existing = await tx.roleAssignment.findFirst({ where: { userId: user.id, role: "admin" } });
           if (!existing) await tx.roleAssignment.create({ data: { userId: user.id, role: "admin" } });
         });
@@ -96,17 +93,29 @@ export class WorkspacesService {
 
       await tx.auditEvent.create({
         data: {
-          workspaceId: workspace.id,
+          workspaceId: ws.id,
           actorUserId: ownerSub ?? "system",
           action: "workspace.created",
           entityType: "workspace",
-          entityId: workspace.id,
+          entityId: ws.id,
           metadata: { name: input.name, slug },
         },
       });
 
-      return workspace;
+      return ws;
     });
+
+    // Fire welcome email (best-effort, non-blocking)
+    if (ownerEmail) {
+      const appUrl = process.env.APP_URL ?? "https://sensehub.app";
+      const { subject, html, text } = welcomeEmail({
+        workspaceName: input.name,
+        dashboardUrl: `${appUrl}/`,
+      });
+      void this.email.send({ to: ownerEmail, subject, html, text });
+    }
+
+    return workspace;
   }
 
   async listInvitations(workspaceId: string) {
@@ -136,7 +145,31 @@ export class WorkspacesService {
       },
     });
 
+    // Send invitation email (best-effort)
+    const workspace = await this.prisma.workspace.findUnique({ where: { id: workspaceId }, select: { name: true } });
+    if (workspace) {
+      const appUrl = process.env.APP_URL ?? "https://sensehub.app";
+      const { subject, html, text } = invitationEmail({
+        workspaceName: workspace.name,
+        role,
+        acceptUrl: `${appUrl}/invite/${token}`,
+        expiresAt,
+      });
+      void this.email.send({ to: email, subject, html, text });
+    }
+
     return invitation;
+  }
+
+  async previewInvitation(token: string) {
+    const invitation = await this.prisma.workspaceInvitation.findUnique({
+      where: { token },
+      include: { workspace: { select: { name: true } } },
+    });
+    if (!invitation || invitation.status !== "pending" || invitation.expiresAt < new Date()) {
+      return null;
+    }
+    return { email: invitation.email, role: invitation.role, workspaceName: invitation.workspace.name };
   }
 
   async revokeInvitation(workspaceId: string, inviteId: string) {

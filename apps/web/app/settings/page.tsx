@@ -99,24 +99,24 @@ export default function SettingsPage() {
   const [accessReviewStatus, setAccessReviewStatus] = useState<string | null>(null);
 
   const loadSettings = async () => {
-    const res = await apiFetch(`/workspaces/${user?.workspaceId ?? ""}`));
+    const res = await apiFetch(`/workspaces/${user?.workspaceId ?? ""}`);
     setSettings(res.ok ? await res.json() : null);
   };
 
   const loadUsers = async () => {
-    const res = await apiFetch(`/users?workspaceId=${user?.workspaceId ?? ""}`));
+    const res = await apiFetch(`/users?workspaceId=${user?.workspaceId ?? ""}`);
     if (!res.ok) return;
     setUsers(await res.json());
   };
 
   const loadAccessReviews = async () => {
-    const res = await apiFetch(`/access-reviews?workspaceId=${user?.workspaceId ?? ""}&limit=10`));
+    const res = await apiFetch(`/access-reviews?workspaceId=${user?.workspaceId ?? ""}&limit=10`);
     if (!res.ok) return;
     setAccessReviews(await res.json());
   };
 
   const loadTrustArtifacts = async () => {
-    const res = await apiFetch(`/trust-center/artifacts?workspaceId=${user?.workspaceId ?? ""}`));
+    const res = await apiFetch(`/trust-center/artifacts?workspaceId=${user?.workspaceId ?? ""}`);
     if (!res.ok) return;
     setTrustArtifacts(await res.json());
   };
@@ -124,7 +124,7 @@ export default function SettingsPage() {
   useEffect(() => {
     loadSettings();
     loadTrustArtifacts();
-    apiFetch(`/audit?workspaceId=${user?.workspaceId ?? ""}&entityType=workspace&limit=5`))
+    apiFetch(`/audit?workspaceId=${user?.workspaceId ?? ""}&entityType=workspace&limit=5`)
       .then((r) => (r.ok ? r.json() : []))
       .then((events: { action: string; createdAt: string }[]) => {
         const retention = events.find((event) => event.action.startsWith("retention."));
@@ -132,10 +132,10 @@ export default function SettingsPage() {
           setLastRetention(new Date(retention.createdAt).toLocaleString());
         }
       });
-    apiFetch(`/auth/sso/config`))
+    apiFetch(`/auth/sso/config`)
       .then((r) => (r.ok ? r.json() : null))
       .then(setSsoConfig);
-    apiFetch(`/secrets/health`))
+    apiFetch(`/secrets/health`)
       .then((r) => (r.ok ? r.json() : null))
       .then(setSecretsHealth);
     loadRevokedTokens({ reset: true });
@@ -153,7 +153,7 @@ export default function SettingsPage() {
     if (!settings) return;
     setStatus("Saving...");
     const res = await apiFetch(`/workspaces/${settings.id}/settings`,{method: "PATCH",
-      headers: { ...HEADERS, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         retentionDays: settings.retentionDays,
         auditRetentionEnabled,
@@ -173,7 +173,7 @@ export default function SettingsPage() {
     if (!artifactFilename.trim() || !artifactStorageKey.trim()) return;
     const res = await apiFetch(`/trust-center/artifacts`, {
       method: "POST",
-      headers: { ...HEADERS, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         workspaceId: user?.workspaceId ?? "",
         category: artifactCategory,
@@ -195,7 +195,7 @@ export default function SettingsPage() {
   const updateArtifactStatus = async (id: string, status: string) => {
     const res = await apiFetch(`/trust-center/artifacts/${id}`, {
       method: "PATCH",
-      headers: { ...HEADERS, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
     if (res.ok) {
@@ -207,7 +207,7 @@ export default function SettingsPage() {
     if (!artifactStorageKey.trim()) return;
     const res = await apiFetch(`/trust-center/upload-url`, {
       method: "POST",
-      headers: { ...HEADERS, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ storageKey: artifactStorageKey.trim(), contentType: artifactContentType }),
     });
     if (!res.ok) return;
@@ -220,7 +220,7 @@ export default function SettingsPage() {
     setRevokeStatus("Revoking...");
     const res = await apiFetch(`/auth/tokens/revoke`, {
       method: "POST",
-      headers: { ...HEADERS, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         workspaceId: user?.workspaceId ?? "",
         actorUserId: user?.sub ?? "",
@@ -273,7 +273,7 @@ export default function SettingsPage() {
   const updateUserRoles = async (userId: string, roles: string[]) => {
     setRoleStatus("Updating roles...");
     const res = await apiFetch(`/users/${userId}/roles`,{method: "POST",
-      headers: { ...HEADERS, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ roles }),
     });
     setRoleStatus(res.ok ? "Roles updated." : "Failed to update roles.");
@@ -290,7 +290,7 @@ export default function SettingsPage() {
       .filter(Boolean);
     const res = await apiFetch(`/access-reviews`, {
       method: "POST",
-      headers: { ...HEADERS, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         workspaceId: user?.workspaceId ?? "",
         reviewerUserId: user?.sub ?? "",

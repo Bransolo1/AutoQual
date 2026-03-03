@@ -13,7 +13,17 @@ import { type NextRequest, NextResponse } from "next/server";
  * Unauthenticated requests are redirected to /auth/login with a returnTo param.
  */
 
-const PUBLIC_PREFIXES = ["/auth/", "/api/auth/", "/api/healthz", "/embed/", "/_next/", "/favicon"];
+const PUBLIC_PREFIXES = [
+  "/auth/",
+  "/api/auth/",
+  "/api/healthz",
+  "/api/invite/",
+  "/invite/",
+  "/embed/",
+  "/_next/",
+  "/favicon",
+  "/maintenance",
+];
 
 function isPublic(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
