@@ -571,3 +571,243 @@ Acceptance Criteria:
 - Snapshot repository configured with scheduled snapshots.
 - Restore runbook verified in staging.
 - Full rebuild runbook covers restoring data and reindexing search from scratch.
+
+## EPIC L: Study builder UX (researcher experience)
+
+The study wizard exists as a 7-step form backed by raw JSON editing. These tickets replace raw JSON inputs with purpose-built UIs and complete the researcher workflow end to end.
+
+---
+Summary: L1 Visual guide builder replacing raw JSON editor
+Issue Type: Story
+Priority: P1
+Description: The current guide builder on Step 3 requires researchers to type or paste raw JSON to define sections, questions, and probes. This is unusable for non-technical researchers.
+Acceptance Criteria:
+- Researcher can add, reorder, and delete sections via drag-and-drop.
+- Within each section, researcher can add, reorder, and delete questions with a plain-text editor.
+- Each question supports an optional probe field (follow-up hint for the AI moderator).
+- Stop conditions (max turns, min coverage) set via numeric inputs, not JSON.
+- The guide generates a validated JSON structure that the API accepts unchanged.
+- Brief-to-guide AI generation renders into the visual editor rather than a raw text area.
+- Guide versioning is preserved: saving creates a new version with a timestamp and author.
+
+---
+Summary: L2 Researcher wizard UX polish and validation
+Issue Type: Story
+Priority: P1
+Description: The wizard currently requires researchers to type workspace and project UUIDs manually. Steps lack validation, and required prerequisites are not enforced.
+Acceptance Criteria:
+- Workspace and project are selected from dropdown lists, not typed as IDs.
+- Study name validates on blur and blocks advancement if empty.
+- Advancing to the Guide step is blocked until a study has been created.
+- Advancing to the Recruitment step is blocked until a guide has been saved.
+- Advancing to the Run step is blocked until recruitment setup is complete.
+- Step completion indicators show clearly which steps are done.
+- Wizard state persists across page reloads (already uses localStorage; must survive study ID changes).
+
+---
+Summary: L3 Visual recruitment setup builder
+Issue Type: Story
+Priority: P1
+Description: Screening logic and quota targets are configured by editing JSON objects directly. Researchers cannot be expected to write JSON for screening rules.
+Acceptance Criteria:
+- Screening logic editor provides an if/then rule builder: attribute, operator, value, action (screen in/out).
+- Quota targets editor lists each segment with a numeric input for the target count.
+- Remaining quota is shown live against actual participant counts from the API.
+- Researcher can add, edit, and remove screening rules without touching JSON.
+- Localization checklist items are shown as labelled checkboxes, not JSON keys.
+- Underlying data is still stored and submitted as the existing JSON schema.
+
+---
+Summary: L4 Live session monitoring dashboard
+Issue Type: Story
+Priority: P1
+Description: The Run step shows only quota totals fetched on demand. Researchers have no live view of who is in-session, which sessions are at risk, or what the interview moderator is producing.
+Acceptance Criteria:
+- Dashboard lists active and recently completed sessions with status (in-progress, submitted, failed, abandoned).
+- For each session: participant segment, elapsed time, current question index, consent status.
+- Quota progress bars per segment update automatically on a polling interval.
+- Researcher can flag or terminate a session from the dashboard.
+- Session detail view shows the conversation turns that have occurred so far.
+
+---
+Summary: L5 Moderator configuration panel in the study wizard
+Issue Type: Story
+Priority: P1
+Description: There is no way for a researcher to configure how the AI moderator behaves for a specific study. System prompt, probing aggressiveness, and interview modality are not exposed in the wizard.
+Acceptance Criteria:
+- New step or section in the guide builder for Moderator settings.
+- Researcher writes a freeform system prompt: persona, context, tone, any domain-specific instructions.
+- Researcher sets a depth temperature from 1 (move on quickly) to 10 (dig deep until satisfied).
+- Researcher selects the interview modality: voice, text, or participant choice.
+- Researcher sets a sufficiency threshold: the minimum response quality score before the AI moves to the next question.
+- Moderator settings are stored on the study's interviewGuide schema and passed to the orchestration engine at runtime.
+
+## EPIC M: Participant end-to-end experience
+
+The current participant flow (/participant and /interview) is a developer test harness that exposes raw controls, internal status messages, and JSON blobs. These tickets replace it with a polished, production-quality participant experience.
+
+---
+Summary: M1 Participant onboarding and screening flow
+Issue Type: Story
+Priority: P1
+Description: The participant welcome page is a static card with a single Start Interview link. There is no study context, no screening, and no device setup guide before the interview begins.
+Acceptance Criteria:
+- Participant arrives via a study-specific link containing a one-time token.
+- Welcome screen shows study title and a plain-language description of what the interview covers and how long it takes.
+- Consent screen presents the full consent text from the study configuration with an explicit I agree checkbox. Participant cannot proceed without consenting.
+- Screening questionnaire dynamically presents required screening questions from the study's screening logic.
+- If the participant is screened out, they see a polite disqualification message. Session is marked disqualified.
+- If the participant passes screening, they proceed to a device check.
+- Device check confirms camera (if video mode) and microphone work before any recording begins.
+- Each step shows a clear progress indicator so participants know where they are.
+
+---
+Summary: M2 Polished participant interview UI (text chat mode)
+Issue Type: Story
+Priority: P1
+Description: The interview page is a developer tool with upload buttons, multipart controls, and raw JSON status strings. Text chat mode needs a clean conversational interface.
+Acceptance Criteria:
+- Chat interface shows one AI question at a time in a bubble layout.
+- Participant types a response in a text input and submits.
+- After submission, the AI moderator generates the next question (or a probe if the answer is insufficient).
+- Progress indicator shows how many questions remain, without revealing the exact count.
+- Participant can edit or retract their last response before the moderator advances.
+- No developer controls, status strings, or JSON are visible.
+- Session is saved turn-by-turn so a browser refresh does not lose progress.
+
+---
+Summary: M3 Polished participant interview UI (voice mode)
+Issue Type: Story
+Priority: P1
+Description: Voice mode requires a real-time speak-then-listen experience, not a manual record / stop / upload cycle. The current implementation is a developer harness.
+Acceptance Criteria:
+- Participant sees a visual speaking indicator (waveform or pulse) while the AI moderator plays the next question via text-to-speech.
+- After the question ends, the participant's microphone activates with a clear recording indicator.
+- Silence detection or a manual Stop button ends the participant's turn.
+- Participant audio is transcribed in real time or near-real time.
+- Transcribed text is shown back to the participant so they can verify accuracy before submitting.
+- AI moderator generates and plays the next question or probe after processing the response.
+- Participant can pause, re-record the current turn, or request the question be repeated.
+- No raw upload buttons, multipart controls, or technical status messages are shown.
+
+---
+Summary: M4 Participant depth preference control
+Issue Type: Story
+Priority: P1
+Description: The researcher sets a default depth temperature for the study, but some participants may want a quicker or more reflective conversation. Exposing this as a participant-facing preference increases data quality and participant satisfaction.
+Acceptance Criteria:
+- Before the interview begins (after device check), participant sees a brief explanation of conversation depth and a simple control: Quick (I will give short answers and move on), Balanced (default), or Reflective (I am happy to explore in depth).
+- The participant's selection adjusts the effective depth temperature within bounds the researcher has configured.
+- If the researcher disables participant override, this screen is skipped.
+- The participant's selection is stored on the session and included in the analysis context.
+
+---
+Summary: M5 Session completion and thank-you flow
+Issue Type: Story
+Priority: P1
+Description: There is no completion screen. After the last question the participant has no confirmation that the interview is done.
+Acceptance Criteria:
+- After all questions are answered (or max turns reached), participant sees a thank-you screen.
+- Screen confirms the session has been submitted and explains what happens next.
+- If the study is configured with an incentive, screen shows incentive instructions (e.g. redemption code or next steps).
+- Participant can optionally leave a brief feedback note about the interview experience.
+- Embed token is marked complete and the parent window receives the sensehub.embed.completed postMessage.
+- Participant cannot re-enter the session using the same token after completion.
+
+---
+Summary: M6 Session resume and progress persistence
+Issue Type: Story
+Priority: P2
+Description: If a participant closes the browser mid-interview, they currently lose their session state and cannot resume.
+Acceptance Criteria:
+- When a participant re-opens their study link, the system detects an existing in-progress session for that token.
+- Participant is offered the choice to resume where they left off or start over.
+- Resuming restores the completed turns and picks up from the next unanswered question.
+- Starting over creates a new session and marks the previous one as abandoned.
+- Session expiry is configurable per study (e.g. 24 hours after creation).
+
+## EPIC N: LLM orchestration and agentic interview engine
+
+The current moderator is purely rule-based: it selects the next static question from the guide by index. It does not call an LLM, does not evaluate answer quality, and does not adapt. These tickets build the real agentic interview engine.
+
+---
+Summary: N1 LLM-powered moderator with study system prompt
+Issue Type: Story
+Priority: P1
+Description: The moderator service selects the next question by array index using a hard-coded helper function. It never calls an LLM. The system prompt written by the researcher is never used.
+Acceptance Criteria:
+- Moderator service calls the configured AI provider (OpenAI or Anthropic) for each turn.
+- The system prompt is assembled from: the study-level system prompt the researcher wrote, the interview guide (sections, questions, probes, stop conditions), the current question being explored, the full conversation history so far, and the participant's depth temperature setting.
+- The LLM response is the interviewer's next utterance: a question, a probe, a follow-up, or a transition.
+- The LLM is instructed to stay within the guide structure and not invent off-topic questions.
+- Raw LLM responses are validated against an expected schema (must be a question or transition string, not a JSON blob or freeform essay).
+- Reasoning log records which guide question was being explored, the LLM's output, and the provider used.
+- Fallback to the static rule-based selector if the LLM call fails or times out.
+
+---
+Summary: N2 Answer sufficiency evaluator
+Issue Type: Story
+Priority: P1
+Description: The moderator currently moves to the next question after every participant turn regardless of response quality. If a participant gives a one-word answer the interviewer still advances.
+Acceptance Criteria:
+- After each participant turn, a sufficiency sub-call evaluates whether the response adequately addresses the current question.
+- Sufficiency evaluator returns a score from 0.0 to 1.0 and a short reason string.
+- The threshold for sufficiency is set per study by the researcher (default 0.7).
+- If the score is below the threshold, the moderator generates a probe (follow-up question) rather than advancing to the next guide question.
+- Maximum probe attempts per question is configurable (default 2) to prevent the moderator from looping.
+- Sufficiency score, reason, and probe count are stored in the session turn record for analysis.
+- Probes are contextually generated by the LLM, not drawn from a static probe field, though the static probe field is provided as a hint.
+
+---
+Summary: N3 Depth temperature parameter in the orchestration engine
+Issue Type: Story
+Priority: P1
+Description: There is no depth temperature concept anywhere in the codebase. The researcher and participant controls defined in L5 and M4 need a corresponding engine implementation.
+Acceptance Criteria:
+- Depth temperature (1–10) is passed to the moderator engine at the start of each session.
+- Temperature controls three engine behaviours: the sufficiency threshold (higher temperature → higher threshold → more probing), the maximum probe attempts per question (higher temperature → more retries before advancing), and the system prompt instruction for conversational style (higher temperature → more curious, exploratory tone instruction appended to the system prompt).
+- A temperature of 1 behaves like: threshold 0.4, max probes 0, style instruction "Keep the conversation brisk and move forward after one brief follow-up at most."
+- A temperature of 10 behaves like: threshold 0.85, max probes 4, style instruction "Explore thoroughly. Follow each answer with genuine curiosity. Do not advance until the participant has shared their reasoning and feelings in depth."
+- Intermediate values interpolate linearly.
+- Temperature and its derived parameters are logged in the session reasoning log for QA.
+
+---
+Summary: N4 Voice pipeline: speech-to-text and text-to-speech integration
+Issue Type: Story
+Priority: P1
+Description: Voice mode in the interview UI requires real-time transcription of participant speech and synthesis of moderator questions. Neither exists.
+Acceptance Criteria:
+- Participant audio is streamed or sent in chunks to a speech-to-text provider (configurable: Whisper, Deepgram, or equivalent).
+- Transcription result is returned with word-level timestamps and a confidence score.
+- Low-confidence segments are flagged for participant review before submission.
+- Moderator questions are passed to a text-to-speech provider to generate audio played in the browser.
+- TTS voice is configurable per study (language, gender, tone).
+- End-to-end latency target: participant stops speaking → AI starts responding → under 2 seconds for p50 sessions.
+- Voice pipeline errors (STT failure, TTS failure) fall back gracefully: STT failure → participant can type instead; TTS failure → question is displayed as text.
+- Audio chunks and transcription artifacts are stored in object storage under the session.
+
+---
+Summary: N5 Conversation state machine and guide coverage tracker
+Issue Type: Story
+Priority: P1
+Description: The moderator tracks position in the guide by simple array index. If the LLM probes or the participant goes off-topic, the index drifts and questions are skipped or repeated.
+Acceptance Criteria:
+- A conversation state machine tracks the status of each guide question: not started, in progress, sufficiently answered, skipped.
+- The LLM is given the full state on each turn so it can reference coverage in its reasoning.
+- When a participant volunteers an answer to a future question mid-conversation, the engine marks that question as partially covered.
+- The engine chooses the next question to explore based on coverage state and guide order, not a linear index.
+- At the end of the session a coverage report is generated: which questions were answered, their sufficiency scores, and which were skipped and why.
+- Coverage report is stored on the session and surfaced in the researcher's session monitoring dashboard (L4).
+
+---
+Summary: N6 Provider-agnostic LLM adapter with fallback chain
+Issue Type: Story
+Priority: P2
+Description: The AI adapter currently has a mock implementation. The moderator service imports the adapter but does not make real LLM calls. For production the engine must support multiple providers and tolerate failures.
+Acceptance Criteria:
+- AI adapter interface supports: generate (single completion), stream (streaming completion), and score (classification/scoring sub-call for sufficiency).
+- Concrete adapters for Anthropic (Claude) and OpenAI (GPT-4o class).
+- Each study can be configured with a preferred provider and a fallback provider.
+- If the primary provider fails or times out, the engine retries once then falls back to the secondary provider.
+- Token usage, latency, provider used, and model version are logged per turn.
+- Cost estimation is included in the session record for workspace-level usage reporting.
