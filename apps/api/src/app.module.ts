@@ -45,6 +45,7 @@ import { APP_GUARD, Reflector } from "@nestjs/core";
 import { AuthGuard } from "./auth/auth.guard";
 import { WorkspaceGuard } from "./auth/workspace.guard";
 import { RolesGuard } from "./auth/roles.guard";
+import { BillingGuard } from "./auth/billing.guard";
 import { envValidationSchema } from "./config/env.validation";
 
 @Module({
@@ -105,6 +106,7 @@ import { envValidationSchema } from "./config/env.validation";
     AuthGuard,
     WorkspaceGuard,
     RolesGuard,
+    BillingGuard,
     LoggerMiddleware,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ]
