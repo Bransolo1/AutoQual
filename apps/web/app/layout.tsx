@@ -2,6 +2,8 @@ import "./globals.css";
 import type { ReactNode } from "react";
 import { bearerHeader, getSessionToken, getSessionUser } from "../lib/session";
 import { TokenProvider } from "../lib/token-context";
+import { CookieConsent } from "../components/CookieConsent";
+import { ToastProvider } from "../components/Toast";
 
 export const metadata = {
   title: "Sensehub Auto Qual",
@@ -75,19 +77,23 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             </nav>
           </div>
         </header>
-        <TokenProvider token={token}>
-          {children}
-        </TokenProvider>
+        <ToastProvider>
+          <TokenProvider token={token}>
+            {children}
+          </TokenProvider>
+        </ToastProvider>
         <footer className="mt-12 border-t border-gray-200 bg-white/80">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-8 py-6 text-xs text-gray-500">
             <span>Enterprise qual platform with delivery governance.</span>
             <div className="flex gap-4">
               <a href="/legal/terms" className="hover:text-slate-700">Terms</a>
               <a href="/legal/privacy" className="hover:text-slate-700">Privacy</a>
+              <a href="/legal/data-request" className="hover:text-slate-700">Data request</a>
               <a href="/help" className="hover:text-slate-700">Help</a>
             </div>
           </div>
         </footer>
+        <CookieConsent />
       </body>
     </html>
   );

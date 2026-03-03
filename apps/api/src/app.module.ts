@@ -36,6 +36,7 @@ import { SecretsModule } from "./modules/secrets/secrets.module";
 import { AuthTokensModule } from "./modules/auth-tokens/auth-tokens.module";
 import { UsersModule } from "./modules/users/users.module";
 import { AccessReviewsModule } from "./modules/access-reviews/access-reviews.module";
+import { AdminModule } from "./modules/admin/admin.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { PrismaService } from "./prisma/prisma.service";
 import { QueueModule } from "./queue/queue.module";
@@ -97,6 +98,7 @@ import { envValidationSchema } from "./config/env.validation";
     AuthTokensModule,
     UsersModule,
     AccessReviewsModule,
+    AdminModule,
   ],
   providers: [
     Reflector,
