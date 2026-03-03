@@ -416,11 +416,158 @@ Acceptance Criteria:
 - One-click convert insight to story block.
 
 ---
-Summary: G3 Admin console  
-Issue Type: Story  
-Priority: P2  
-Description: Workspace-level admin tooling.  
+Summary: G3 Admin console
+Issue Type: Story
+Priority: P2
+Description: Workspace-level admin tooling.
 Acceptance Criteria:
 - SSO config, retention, PII controls.
 - Role assignment and access reviews.
 - Token revocation management UI.
+
+## EPIC H: Infrastructure and hosting
+
+---
+Summary: H1 Production Kubernetes cluster and networking
+Issue Type: Story
+Priority: P1
+Description: No production hosting exists. The app runs locally only.
+Acceptance Criteria:
+- Kubernetes cluster provisioned with private node groups.
+- VPC with private subnets for compute and data services.
+- Public subnets for load balancer only.
+- Security groups restrict Postgres, Redis, and OpenSearch to cluster only.
+- Namespaces created for staging and production.
+- Ingress controller and cert manager installed.
+
+---
+Summary: H2 Edge layer: CDN, WAF, TLS, and load balancer
+Issue Type: Story
+Priority: P1
+Description: No CDN, WAF, or TLS termination is configured.
+Acceptance Criteria:
+- Domain registered with DNS pointing to load balancer.
+- TLS certificates issued via automated certificate manager.
+- HTTP redirects to HTTPS enforced.
+- CDN caches static assets.
+- WAF blocks common attacks and enforces rate limits.
+- Request size limits applied for media upload routes.
+
+---
+Summary: H3 Managed data services provisioning
+Issue Type: Story
+Priority: P1
+Description: Local Docker services must be replaced by managed equivalents for production.
+Acceptance Criteria:
+- Managed Postgres with point-in-time recovery enabled.
+- Managed Redis with TLS and persistence.
+- Managed OpenSearch with snapshots enabled.
+- Object storage buckets for raw and derived media artifacts.
+- Bucket lifecycle and versioning policies configured.
+- All data services unreachable from public internet.
+
+---
+Summary: H4 Workload identity and least-privilege service accounts
+Issue Type: Story
+Priority: P1
+Description: Services currently use shared credentials with no workload identity.
+Acceptance Criteria:
+- Workload identity or service account tokens used for cluster-to-service auth.
+- Worker restricted to only the internal API endpoints it needs.
+- No credentials stored in container images or config maps.
+- Secrets manager integration provides all runtime secrets.
+
+---
+Summary: H5 Enterprise single-tenant Docker Compose stack
+Issue Type: Story
+Priority: P2
+Description: Enterprise customers requiring full isolation have no supported deployment option.
+Acceptance Criteria:
+- Docker Compose stack packages web, api, worker, Postgres, Redis, OpenSearch, and MinIO.
+- Fronted by a reverse proxy with TLS and WAF.
+- Tenant-specific runbook covers backups, upgrades, and patching.
+- SLA targets documented per customer tier.
+
+## EPIC I: CI/CD pipeline
+
+---
+Summary: I1 CI build pipeline
+Issue Type: Story
+Priority: P1
+Description: No automated CI pipeline runs tests, lint, or container builds on merge.
+Acceptance Criteria:
+- On merge to main: run lint, typecheck, and all tests.
+- Build container images for web, api, and worker.
+- Run dependency and container vulnerability scans.
+- Push images to private container registry.
+- Pipeline fails and blocks merge if any step fails.
+
+---
+Summary: I2 GitOps deployment pipeline with Prisma migrations
+Issue Type: Story
+Priority: P1
+Description: No automated deployment pipeline exists.
+Acceptance Criteria:
+- GitOps repo with environment overlays for staging and production.
+- Staging deployed automatically on merge to main.
+- Production promoted via tagged releases only.
+- Prisma migrations run as a controlled pre-deploy job.
+- Canary deployment supported for api and web with rollback.
+- Separate databases and object storage per environment.
+
+## EPIC J: Observability
+
+---
+Summary: J1 OpenTelemetry, metrics, and dashboards
+Issue Type: Story
+Priority: P1
+Description: No production observability exists. There are no traces, metrics, or dashboards.
+Acceptance Criteria:
+- OpenTelemetry collector deployed and receiving traces from api and worker.
+- Prometheus scrapes metrics from all services.
+- Grafana dashboards cover: API request rate, latency percentiles, error rate, worker throughput, queue lag, job failure rate, transcription and redaction job durations, OpenSearch query latency, object storage error rate, database connections and slow queries.
+- Log pipeline configured (Loki or cloud log service).
+
+---
+Summary: J2 Alerting and SLO definitions
+Issue Type: Story
+Priority: P1
+Description: No alerts or SLOs are defined.
+Acceptance Criteria:
+- Alerts fire for: API error rate above threshold, queue lag above threshold, job failures above threshold, disk or memory pressure, search cluster health not green, database connection saturation.
+- SLOs defined and tracked for: researcher console availability, participant session submission success rate, time from session complete to transcript ready, time from transcript ready to first insights produced.
+- On-call runbook references alert conditions and resolution steps.
+
+## EPIC K: Backups and disaster recovery
+
+---
+Summary: K1 Postgres backups and point-in-time recovery
+Issue Type: Story
+Priority: P1
+Description: No backup or restore process is defined for the database.
+Acceptance Criteria:
+- Daily full backups plus point-in-time recovery enabled.
+- Restore tested in staging on a quarterly cadence.
+- RPO and RTO targets documented per customer tier.
+- Restore runbook executable by engineers without additional clarification.
+
+---
+Summary: K2 Object storage versioning, lifecycle, and replication
+Issue Type: Story
+Priority: P1
+Description: Object storage has no versioning, lifecycle rules, or cross-region replication.
+Acceptance Criteria:
+- Versioning enabled on all media and artifact buckets.
+- Lifecycle rules expire stale derived artifacts aligned to retention policy.
+- Optional cross-region replication for enterprise tier.
+- Deleted objects produce an audit record.
+
+---
+Summary: K3 OpenSearch snapshots and restore runbook
+Issue Type: Story
+Priority: P2
+Description: OpenSearch index data is not backed up.
+Acceptance Criteria:
+- Snapshot repository configured with scheduled snapshots.
+- Restore runbook verified in staging.
+- Full rebuild runbook covers restoring data and reindexing search from scratch.
