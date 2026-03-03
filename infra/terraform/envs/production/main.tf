@@ -6,6 +6,25 @@ terraform {
       version = "~> 5.0"
     }
   }
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Remote state – required for team workflows.
+  # Bootstrap once with:
+  #   aws s3api create-bucket --bucket autoqual-tf-state-production --region us-east-1
+  #   aws s3api put-bucket-versioning --bucket autoqual-tf-state-production \
+  #     --versioning-configuration Status=Enabled
+  #   aws dynamodb create-table --table-name autoqual-tf-lock \
+  #     --attribute-definitions AttributeName=LockID,AttributeType=S \
+  #     --key-schema AttributeName=LockID,KeyType=HASH \
+  #     --billing-mode PAY_PER_REQUEST --region us-east-1
+  # ─────────────────────────────────────────────────────────────────────────
+  backend "s3" {
+    bucket         = "autoqual-tf-state-production"
+    key            = "production/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "autoqual-tf-lock"
+    encrypt        = true
+  }
 }
 
 provider "aws" {
@@ -43,29 +62,29 @@ module "eks" {
 }
 
 module "data" {
-  source                          = "../../modules/data"
-  name                            = var.env_name
-  vpc_id                          = module.network.vpc_id
-  private_subnet_ids              = module.network.private_subnet_ids
-  app_security_group_id           = module.eks.cluster_security_group_id
-  postgres_engine_version         = var.postgres_engine_version
-  postgres_instance_class         = var.postgres_instance_class
-  postgres_allocated_storage      = var.postgres_allocated_storage
-  postgres_username               = var.postgres_username
-  postgres_password               = var.postgres_password
-  postgres_multi_az               = var.postgres_multi_az
-  postgres_backup_retention_days  = var.postgres_backup_retention_days
-  redis_node_type                 = var.redis_node_type
-  redis_node_count                = var.redis_node_count
-  redis_auth_token                = var.redis_auth_token
-  opensearch_engine_version       = var.opensearch_engine_version
-  opensearch_instance_type        = var.opensearch_instance_type
-  opensearch_instance_count       = var.opensearch_instance_count
-  opensearch_master_username      = var.opensearch_master_username
-  opensearch_master_password      = var.opensearch_master_password
-  raw_media_bucket                = var.raw_media_bucket
-  derived_media_bucket            = var.derived_media_bucket
-  tags                            = local.tags
+  source                         = "../../modules/data"
+  name                           = var.env_name
+  vpc_id                         = module.network.vpc_id
+  private_subnet_ids             = module.network.private_subnet_ids
+  app_security_group_id          = module.eks.cluster_security_group_id
+  postgres_engine_version        = var.postgres_engine_version
+  postgres_instance_class        = var.postgres_instance_class
+  postgres_allocated_storage     = var.postgres_allocated_storage
+  postgres_username              = var.postgres_username
+  postgres_password              = var.postgres_password
+  postgres_multi_az              = var.postgres_multi_az
+  postgres_backup_retention_days = var.postgres_backup_retention_days
+  redis_node_type                = var.redis_node_type
+  redis_node_count               = var.redis_node_count
+  redis_auth_token               = var.redis_auth_token
+  opensearch_engine_version      = var.opensearch_engine_version
+  opensearch_instance_type       = var.opensearch_instance_type
+  opensearch_instance_count      = var.opensearch_instance_count
+  opensearch_master_username     = var.opensearch_master_username
+  opensearch_master_password     = var.opensearch_master_password
+  raw_media_bucket               = var.raw_media_bucket
+  derived_media_bucket           = var.derived_media_bucket
+  tags                           = local.tags
 }
 
 module "secrets" {

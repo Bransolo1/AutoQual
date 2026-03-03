@@ -57,7 +57,12 @@ resource "aws_db_instance" "postgres" {
   vpc_security_group_ids  = [aws_security_group.data.id]
   multi_az                = var.postgres_multi_az
   backup_retention_period = var.postgres_backup_retention_days
-  skip_final_snapshot     = true
+  storage_encrypted       = true
+  deletion_protection     = true
+  # NEVER set skip_final_snapshot = true for production databases.
+  skip_final_snapshot     = false
+  final_snapshot_identifier = "${var.name}-postgres-final"
+  performance_insights_enabled = true
 
   tags = var.tags
 }
@@ -132,5 +137,41 @@ resource "aws_s3_bucket_versioning" "derived_media" {
   bucket = aws_s3_bucket.derived_media.id
   versioning_configuration {
     status = "Enabled"
+  }
+}
+
+# Block all public access on media buckets
+resource "aws_s3_bucket_public_access_block" "raw_media" {
+  bucket                  = aws_s3_bucket.raw_media.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_public_access_block" "derived_media" {
+  bucket                  = aws_s3_bucket.derived_media.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+# Server-side encryption for media buckets
+resource "aws_s3_bucket_server_side_encryption_configuration" "raw_media" {
+  bucket = aws_s3_bucket.raw_media.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "aws:kms"
+    }
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "derived_media" {
+  bucket = aws_s3_bucket.derived_media.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "aws:kms"
+    }
   }
 }

@@ -1,0 +1,36 @@
+---
+# Allow ingress to worker from nothing (workers pull from Redis, not pushed to)
+# Allow egress from worker to Redis and API
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-worker-egress
+spec:
+  podSelector:
+    matchLabels:
+      app: sensehub-worker
+  policyTypes:
+    - Egress
+  egress:
+    # Redis (BullMQ)
+    - ports:
+        - port: 6379
+          protocol: TCP
+    # API (internal service calls)
+    - to:
+        - podSelector:
+            matchLabels:
+              app: sensehub-api
+      ports:
+        - port: 4000
+          protocol: TCP
+    # DNS
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # HTTPS for external AI providers (OpenAI, Anthropic) and S3
+    - ports:
+        - port: 443
+          protocol: TCP

@@ -7,11 +7,22 @@ spec:
   selector:
     matchLabels:
       app: sensehub-worker
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   template:
     metadata:
       labels:
         app: sensehub-worker
     spec:
+      serviceAccountName: sensehub-worker
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
       containers:
         - name: worker
           image: ghcr.io/bransolo1/autoqual-worker:latest
@@ -25,6 +36,13 @@ spec:
               value: "production"
             - name: API_URL
               value: "http://sensehub-api:4000"
+          # Workers don't expose HTTP – use process existence for health
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pgrep -f 'node apps/worker' > /dev/null"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
           resources:
             requests:
               cpu: "200m"
@@ -32,3 +50,15 @@ spec:
             limits:
               cpu: "1"
               memory: "1Gi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      terminationGracePeriodSeconds: 60    # allow in-flight jobs to finish

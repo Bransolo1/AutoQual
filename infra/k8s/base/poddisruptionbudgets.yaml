@@ -1,0 +1,32 @@
+---
+# Ensure at least 1 API pod is available during rolling deploys / node drains
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sensehub-api-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: sensehub-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sensehub-web-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: sensehub-web
+---
+# Worker can go to 0 during drain (jobs will requeue to other workers)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sensehub-worker-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: sensehub-worker

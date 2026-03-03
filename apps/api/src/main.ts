@@ -17,8 +17,11 @@ function bootstrap() {
       .split(",")
       .map((origin) => origin.trim())
       .filter(Boolean);
+    if (!corsOrigins.length) {
+      throw new Error("CORS_ORIGIN must be set to one or more allowed origins");
+    }
     app.enableCors({
-      origin: corsOrigins.length ? corsOrigins : true,
+      origin: corsOrigins,
       credentials: true,
     });
     app.use(helmet());

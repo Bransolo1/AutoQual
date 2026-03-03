@@ -1,0 +1,214 @@
+name: Deploy
+
+on:
+  # Manual trigger for any environment
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "staging"
+        type: choice
+        options: [staging, production]
+      image_tag:
+        description: "Image tag to deploy (e.g. sha-a1b2c3d or latest)"
+        required: true
+        default: "latest"
+
+  # Auto-deploy staging when images are built from main
+  workflow_run:
+    workflows: ["Build and Push Images"]
+    branches: ["main"]
+    types: [completed]
+
+permissions:
+  contents: read
+  id-token: write    # for OIDC to AWS / GCP
+
+env:
+  REGISTRY: ghcr.io
+  REPO_OWNER: ${{ github.repository_owner }}
+
+jobs:
+  # ── Resolve image tag ────────────────────────────────────────────────────────
+  resolve-tag:
+    name: Resolve image tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      env: ${{ steps.env.outputs.env }}
+    steps:
+      - name: Set environment
+        id: env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "env=${{ inputs.environment }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "env=staging" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set image tag
+        id: tag
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "tag=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            SHORT_SHA=$(echo "${{ github.event.workflow_run.head_sha }}" | cut -c1-7)
+            echo "tag=sha-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ── Run Prisma migrations (gated) ──────────────────────────────────────────
+  migrate:
+    name: Run migrations – ${{ needs.resolve-tag.outputs.env }}
+    runs-on: ubuntu-latest
+    needs: resolve-tag
+    environment: ${{ needs.resolve-tag.outputs.env }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "v1.30.0"
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name ${{ secrets.EKS_CLUSTER_NAME }} \
+            --region ${{ secrets.AWS_REGION }}
+
+      - name: Run Prisma migrations
+        run: |
+          NAMESPACE="sensehub-${{ needs.resolve-tag.outputs.env }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/autoqual-api:${{ needs.resolve-tag.outputs.tag }}"
+
+          # Patch the migration job image and run it
+          kubectl -n "${NAMESPACE}" delete job sensehub-prisma-migrate --ignore-not-found
+
+          kubectl -n "${NAMESPACE}" create job sensehub-prisma-migrate \
+            --image="${IMAGE}" \
+            --restart=OnFailure \
+            -- npx prisma migrate deploy --schema apps/api/prisma/schema.prisma
+
+          # Wait up to 3 minutes for the migration job to complete
+          kubectl -n "${NAMESPACE}" wait job/sensehub-prisma-migrate \
+            --for=condition=complete \
+            --timeout=180s
+
+      - name: Show migration logs on failure
+        if: failure()
+        run: |
+          NAMESPACE="sensehub-${{ needs.resolve-tag.outputs.env }}"
+          kubectl -n "${NAMESPACE}" logs job/sensehub-prisma-migrate || true
+
+  # ── Deploy to Kubernetes ────────────────────────────────────────────────────
+  deploy:
+    name: Deploy – ${{ needs.resolve-tag.outputs.env }}
+    runs-on: ubuntu-latest
+    needs: [resolve-tag, migrate]
+    environment: ${{ needs.resolve-tag.outputs.env }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "v1.30.0"
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name ${{ secrets.EKS_CLUSTER_NAME }} \
+            --region ${{ secrets.AWS_REGION }}
+
+      - name: Install kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Deploy with kustomize
+        run: |
+          TAG="${{ needs.resolve-tag.outputs.tag }}"
+          ENV="${{ needs.resolve-tag.outputs.env }}"
+          NAMESPACE="sensehub-${ENV}"
+          REGISTRY="${{ env.REGISTRY }}/${{ env.REPO_OWNER }}"
+
+          cd infra/k8s/overlays/${ENV}
+
+          # Pin image tags in the overlay
+          kustomize edit set image \
+            "ghcr.io/bransolo1/autoqual-api=${REGISTRY}/autoqual-api:${TAG}" \
+            "ghcr.io/bransolo1/autoqual-web=${REGISTRY}/autoqual-web:${TAG}" \
+            "ghcr.io/bransolo1/autoqual-worker=${REGISTRY}/autoqual-worker:${TAG}"
+
+          kustomize build . | kubectl apply -n "${NAMESPACE}" -f -
+
+      - name: Wait for rollout
+        run: |
+          NAMESPACE="sensehub-${{ needs.resolve-tag.outputs.env }}"
+          for deploy in sensehub-api sensehub-web sensehub-worker; do
+            echo "Waiting for ${deploy}..."
+            kubectl -n "${NAMESPACE}" rollout status deployment/${deploy} --timeout=300s
+          done
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          NAMESPACE="sensehub-${{ needs.resolve-tag.outputs.env }}"
+          echo "Deployment failed – rolling back..."
+          for deploy in sensehub-api sensehub-web sensehub-worker; do
+            kubectl -n "${NAMESPACE}" rollout undo deployment/${deploy} || true
+          done
+
+  # ── Smoke tests ─────────────────────────────────────────────────────────────
+  smoke-test:
+    name: Smoke test – ${{ needs.resolve-tag.outputs.env }}
+    runs-on: ubuntu-latest
+    needs: [resolve-tag, deploy]
+    environment: ${{ needs.resolve-tag.outputs.env }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run smoke tests
+        run: |
+          BASE_URL="${{ secrets.APP_BASE_URL }}"
+
+          echo "=== 1. Web healthz ==="
+          curl -fsS "${BASE_URL}/api/healthz" | grep -q '"status":"ok"'
+          echo "PASS"
+
+          echo "=== 2. API health ==="
+          curl -fsS "${BASE_URL}/api/health" | grep -q '"status"'
+          echo "PASS"
+
+          echo "=== 3. API rejects unauthenticated request ==="
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${BASE_URL}/api/projects")
+          [ "${STATUS}" = "401" ] && echo "PASS" || (echo "FAIL: expected 401 got ${STATUS}" && exit 1)
+
+          echo "=== 4. Embed public endpoint (signed token not required for structure check) ==="
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${BASE_URL}/api/embed/config")
+          [ "${STATUS}" != "500" ] && echo "PASS (status=${STATUS})" || (echo "FAIL: 500" && exit 1)
+
+          echo "All smoke tests passed."
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Smoke tests FAILED for ${{ needs.resolve-tag.outputs.env }}."
+          echo "Image tag: ${{ needs.resolve-tag.outputs.tag }}"
+          # Add Slack / PagerDuty notification here using secrets.SLACK_WEBHOOK_URL

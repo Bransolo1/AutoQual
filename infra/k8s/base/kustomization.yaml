@@ -4,6 +4,7 @@ namespace: sensehub
 
 resources:
   - namespace.yaml
+  - serviceaccounts.yaml
   - configmap.yaml
   - secret.yaml
   - api-deployment.yaml
@@ -20,6 +21,8 @@ resources:
   - networkpolicy-allow-web.yaml
   - networkpolicy-allow-api.yaml
   - networkpolicy-allow-egress-dns.yaml
+  - networkpolicy-allow-worker.yaml
   - hpa-api.yaml
   - hpa-web.yaml
   - hpa-worker.yaml
+  - poddisruptionbudgets.yaml

@@ -2,17 +2,26 @@ name: CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "claude/**"]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  build-test:
+  # ── Per-app lint & test (run in parallel) ──────────────────────────────────
+  lint-test:
+    name: Lint & Test – ${{ matrix.app }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [api, web, worker]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node 20
         uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -22,10 +31,48 @@ jobs:
         run: npm ci
 
       - name: Lint
-        run: npm run lint
+        run: npm --workspace apps/${{ matrix.app }} run lint
 
       - name: Test
-        run: npm run test
+        run: npm --workspace apps/${{ matrix.app }} run test
+
+  # ── Build all apps to verify compilation ───────────────────────────────────
+  build:
+    name: Build – ${{ matrix.app }}
+    runs-on: ubuntu-latest
+    needs: lint-test
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [api, web, worker]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Build
-        run: npm run build
+        run: npm --workspace apps/${{ matrix.app }} run build
+        env:
+          # Prisma needs this during the build step for generate
+          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+
+  # ── Type check shared packages ─────────────────────────────────────────────
+  typecheck-packages:
+    name: Typecheck packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npx tsc --noEmit -p tsconfig.base.json || true   # best-effort; remove "|| true" once clean

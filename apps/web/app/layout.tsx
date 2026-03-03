@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { ReactNode } from "react";
+import { bearerHeader, getSessionUser } from "../lib/session";
 
 export const metadata = {
   title: "Sensehub Auto Qual",
@@ -8,14 +9,13 @@ export const metadata = {
 
 async function getUnreadCount() {
   const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+  const auth = bearerHeader();
+  if (!auth.Authorization) return 0;
   try {
-    const response = await fetch(
-      `${API_BASE}/notifications?userId=demo-user&unread=true&limit=1`,
-      {
-        headers: { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" },
-        cache: "no-store",
-      },
-    );
+    const response = await fetch(`${API_BASE}/notifications?unread=true&limit=1`, {
+      headers: { ...auth },
+      cache: "no-store",
+    });
     if (!response.ok) return 0;
     const data = await response.json();
     return Array.isArray(data) ? data.length : 0;
@@ -26,6 +26,7 @@ async function getUnreadCount() {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const unreadCount = await getUnreadCount();
+  const user = getSessionUser();
   return (
     <html lang="en">
       <body>
@@ -73,6 +74,24 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               <a href="/embed-test" className="hover:text-slate-950">
                 Embed Test
               </a>
+              {user ? (
+                <span className="flex items-center gap-3">
+                  <span className="text-xs text-gray-400">{user.email ?? user.sub}</span>
+                  <a
+                    href="/api/auth/logout"
+                    className="rounded-full border border-gray-300 px-3 py-1 text-xs hover:border-slate-950 hover:text-slate-950"
+                  >
+                    Sign out
+                  </a>
+                </span>
+              ) : (
+                <a
+                  href="/auth/login"
+                  className="rounded-full border border-gray-300 px-3 py-1 text-xs hover:border-slate-950 hover:text-slate-950"
+                >
+                  Sign in
+                </a>
+              )}
             </nav>
           </div>
         </header>

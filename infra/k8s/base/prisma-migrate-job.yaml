@@ -4,15 +4,50 @@ metadata:
   name: sensehub-prisma-migrate
 spec:
   backoffLimit: 2
+  ttlSecondsAfterFinished: 600   # clean up the pod 10 min after success/failure
   template:
     spec:
       restartPolicy: OnFailure
+      serviceAccountName: sensehub-api    # uses same SA/permissions as the API
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
       containers:
         - name: prisma-migrate
           image: ghcr.io/bransolo1/autoqual-api:latest
-          command: ["npx", "prisma", "migrate", "deploy"]
+          # prisma migrate deploy is the production-safe command (no dev mode).
+          # The schema path is explicit because the working directory is /app.
+          command:
+            - "npx"
+            - "prisma"
+            - "migrate"
+            - "deploy"
+            - "--schema"
+            - "apps/api/prisma/schema.prisma"
           envFrom:
             - configMapRef:
                 name: sensehub-config
             - secretRef:
                 name: sensehub-secrets
+          env:
+            - name: NODE_ENV
+              value: "production"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

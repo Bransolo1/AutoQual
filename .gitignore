@@ -22,3 +22,7 @@ prisma/dev.db
 uploads/
 apps/e2e/playwright-report/
 apps/e2e/test-results/
+
+# Allow .env.example in all apps and packages
+!apps/**/.env.example
+!packages/**/.env.example

@@ -7,16 +7,28 @@ spec:
   selector:
     matchLabels:
       app: sensehub-web
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   template:
     metadata:
       labels:
         app: sensehub-web
     spec:
+      serviceAccountName: sensehub-web
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
       containers:
         - name: web
           image: ghcr.io/bransolo1/autoqual-web:latest
           ports:
-            - containerPort: 3000
+            - name: http
+              containerPort: 3000
           env:
             - name: NODE_ENV
               value: "production"
@@ -25,6 +37,31 @@ spec:
                 configMapKeyRef:
                   name: sensehub-config
                   key: NEXT_PUBLIC_API_URL
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: sensehub-secrets
+                  key: SESSION_SECRET
+          readinessProbe:
+            httpGet:
+              path: /api/healthz
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/healthz
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          startupProbe:
+            httpGet:
+              path: /api/healthz
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 12
           resources:
             requests:
               cpu: "200m"
@@ -32,3 +69,19 @@ spec:
             limits:
               cpu: "1"
               memory: "1Gi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: next-cache
+              mountPath: /app/apps/web/.next/cache
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: next-cache
+          emptyDir: {}
+      terminationGracePeriodSeconds: 30
