@@ -811,3 +811,575 @@ Acceptance Criteria:
 - If the primary provider fails or times out, the engine retries once then falls back to the secondary provider.
 - Token usage, latency, provider used, and model version are logged per turn.
 - Cost estimation is included in the session record for workspace-level usage reporting.
+
+---
+
+## EPIC O: Replace hardcoded demo headers across all web pages
+
+> **BLOCKER for customer launch.** 30 pages pass `x-workspace-id: demo-workspace-id` and `x-user-id: demo-user` as static headers. All API calls will return 401 in production because the AuthGuard requires a real JWT Bearer token. Every page in this epic needs to be wired to the real session token from `lib/session.ts`.
+
+---
+Summary: O1 Create shared API client hook and server-component fetch helper
+Issue Type: Story
+Priority: P0
+Story Points: 3
+Description: A centralised helper is needed so every page can make authenticated API calls without reimplementing auth. Two variants needed: (a) a server-side fetch helper that reads the session cookie via `bearerHeader()` from `lib/session.ts`, and (b) a client-side `useApi` hook that reads the JWT from a hydrated context and attaches `Authorization: Bearer <token>`.
+Acceptance Criteria:
+- `lib/api.ts` exports `apiFetch(path, options)` for use in server components; automatically attaches `Authorization: Bearer <token>` if a session exists.
+- `lib/useApi.ts` exports `useApi()` hook for client components; reads token from a React context populated during SSR.
+- Neither helper hard-codes workspace or user IDs; both are derived from the decoded JWT claims.
+- All existing pages that import `HEADERS` with `demo-workspace-id` are migrated to use one of these helpers.
+- If the server fetch returns 401, the server component redirects to `/auth/login?returnTo=<current-path>`.
+
+---
+Summary: O2 Migrate server-component pages to real auth (projects, studies, insights, search, notifications, reports, stories, reviews, approvals, audit, evidence)
+Issue Type: Story
+Priority: P0
+Story Points: 5
+Description: The following server-component pages use hardcoded demo headers and must be migrated to `apiFetch` from O1: `/projects`, `/projects/[id]`, `/studies`, `/insights`, `/insights/[id]`, `/search`, `/notifications`, `/reports`, `/stories`, `/reviews`, `/approvals`, `/audit`, `/evidence`.
+Acceptance Criteria:
+- All listed pages use `apiFetch` with the real Bearer token.
+- Demo header constants (`HEADERS`, `WORKSPACE_ID`, `USER_ID`) are removed from all migrated files.
+- Pages redirect to login if the session is absent or expired.
+- Workspace ID is derived from the session token claims, not from a hard-coded string.
+
+---
+Summary: O3 Migrate client-component pages to real auth (settings, ops, interview, embed-test, stakeholder, client portal)
+Issue Type: Story
+Priority: P0
+Story Points: 5
+Description: The following client components use hardcoded demo headers and must be migrated to `useApi` from O1: `/settings`, `/ops`, `/ops/alerts`, `/ops/blocked`, `/ops/overdue`, `/ops/recruitment`, `/interview`, `/embed-test`, `/stakeholder`, `/client`, `/client/approvals`, `/client/approvals/[id]`, `/client/reports`, `/client/insights/[id]`, `/client/audit`.
+Acceptance Criteria:
+- All listed pages use the `useApi` hook.
+- No page references `demo-workspace-id` or `demo-user` at runtime.
+- Client portal pages (`/client/**`) enforce the `client` role; researcher portal pages enforce `researcher` or `admin`.
+- Session expiry during an active client-component page shows a dismissable "Session expired – please sign in" banner before redirecting.
+
+---
+Summary: O4 Remove demo workspace seed dependency
+Issue Type: Story
+Priority: P0
+Story Points: 2
+Description: The API's seed script and several test fixtures create a `demo-workspace-id` workspace. This workspace must not exist in production. New environments must start empty and require real workspace provisioning.
+Acceptance Criteria:
+- Seed script is clearly marked dev-only and cannot run when `NODE_ENV=production`.
+- Any database fixtures referencing `demo-workspace-id` are confined to `*.test.*` files or explicitly namespaced test data.
+- Production migration job does not execute the seed script.
+- CI/CD uses a separate isolated test database and seed, not the production migration path.
+
+---
+
+## EPIC P: Workspace self-serve onboarding
+
+> A new customer must be able to arrive at the product, create a workspace, and reach the dashboard in under 5 minutes without contacting sales or support.
+
+---
+Summary: P1 Workspace creation API endpoint and Prisma model
+Issue Type: Story
+Priority: P0
+Story Points: 3
+Description: There is no endpoint to create a new workspace. Workspaces are currently provisioned by hand (direct database insert or seed). A self-serve customer needs to create their own workspace on sign-up.
+Acceptance Criteria:
+- `POST /workspaces` endpoint creates a workspace with a unique slug and display name.
+- The calling user is automatically assigned the `admin` role in the new workspace.
+- Workspace names are validated: 3–64 chars, alphanumeric with spaces/hyphens, unique slug generated from name.
+- Response includes `{ id, slug, name, createdAt }`.
+- Endpoint is rate-limited to 3 workspace creations per user per hour.
+- New workspace is provisioned with sensible defaults (retention: 365 days, PII redaction: enabled).
+
+---
+Summary: P2 Sign-up and workspace creation web flow
+Issue Type: Story
+Priority: P0
+Story Points: 5
+Description: After SSO callback, first-time users (no workspace membership) must be guided through creating or joining a workspace before reaching the dashboard.
+Acceptance Criteria:
+- After successful SSO login with no existing workspace, user is redirected to `/onboarding`.
+- `/onboarding` page shows a two-step flow: (1) create workspace (name, optional logo); (2) confirm and land on dashboard.
+- If user has been invited to an existing workspace (via invite token, epic Q1), the invitation is accepted here instead.
+- After workspace is created, the JWT is refreshed to include the new `workspaceId` claim (or the API issues a workspace-scoped exchange token).
+- Onboarding state is persisted so a refresh mid-flow does not lose data.
+- Page is mobile-friendly.
+
+---
+Summary: P3 Workspace selector for users who belong to multiple workspaces
+Issue Type: Story
+Priority: P1
+Story Points: 3
+Description: Researchers at agencies or consultancies may belong to multiple workspaces. After login, they need to choose which workspace to enter. The current auth model assumes one workspace per token.
+Acceptance Criteria:
+- After SSO login, if the user belongs to more than one workspace, they are shown `/workspace-select`.
+- Selecting a workspace triggers a workspace-scoped token exchange (`POST /auth/workspace-token?workspaceId=xxx`) and sets the session cookie with the scoped token.
+- Workspace switcher is accessible from the nav (profile dropdown) without requiring re-login.
+- Workspace context is shown in the header (workspace name/logo).
+
+---
+Summary: P4 Workspace settings page: name, logo, slug, retention, PII
+Issue Type: Story
+Priority: P1
+Story Points: 3
+Description: The current `/settings` page calls the API with demo headers. It needs to be a real settings page where workspace admins can update workspace metadata and policy settings.
+Acceptance Criteria:
+- Workspace name, slug, and optional logo (uploaded to S3 and displayed in nav) are editable by `admin` role only.
+- Retention days, PII redaction, and encryption-at-rest flags are shown and editable (admin only).
+- Changes are confirmed with a success toast.
+- Changes outside the authenticated user's workspace are rejected by the API.
+- Non-admin users see settings as read-only.
+
+---
+
+## EPIC Q: Team management and user invitations
+
+---
+Summary: Q1 User invitation API
+Issue Type: Story
+Priority: P0
+Story Points: 5
+Description: There is no way to invite team members to a workspace. Admins must manually create users in the database. For customer-facing launch, admins need to invite by email.
+Acceptance Criteria:
+- `POST /workspaces/:workspaceId/invitations` accepts `{ email, role }` and creates a time-limited signed invitation token (24-hour expiry).
+- Invitation record is stored in a new `WorkspaceInvitation` Prisma model with `status: pending|accepted|expired|revoked`.
+- Invitation email is sent via the email service (epic S1) with an accept link.
+- `POST /workspaces/:workspaceId/invitations/:token/accept` validates the token and provisions the user.
+- `GET /workspaces/:workspaceId/invitations` lists pending invitations (admin only).
+- `DELETE /workspaces/:workspaceId/invitations/:id` revokes an invitation.
+- Invitations cannot be used more than once.
+
+---
+Summary: Q2 Team members settings page
+Issue Type: Story
+Priority: P1
+Story Points: 3
+Description: Admins need a UI to manage team members: view who is in the workspace, invite new members, update roles, and remove members.
+Acceptance Criteria:
+- `/settings/team` page lists all workspace members with name, email, role, and joined date.
+- Invite form sends an invitation (calls Q1 API).
+- Role dropdown changes a member's role (admin/researcher/client) via `PATCH /users/:id/roles`.
+- Remove button removes the user from the workspace (not deletes the user account).
+- Admins cannot remove themselves if they are the last admin.
+- Page is only visible to `admin` role; researchers and clients are redirected.
+
+---
+Summary: Q3 Accept invitation landing page
+Issue Type: Story
+Priority: P1
+Story Points: 2
+Description: Invited users need a landing page that accepts the invitation token and either initiates SSO or confirms account creation.
+Acceptance Criteria:
+- `/invite/:token` page validates the token (calls API; shows error if expired/invalid).
+- If the invited user is not logged in, the page shows an SSO login button pre-filled with their email.
+- After login, the invitation is accepted automatically and the user lands on the workspace dashboard.
+- If the user is already logged in with a different workspace, they are prompted to switch.
+
+---
+Summary: Q4 User profile page
+Issue Type: Story
+Priority: P2
+Story Points: 2
+Description: Users need to view and update their own profile (display name, avatar).
+Acceptance Criteria:
+- `/settings/profile` shows current user's name, email (read-only, from IdP), and avatar.
+- Display name is editable and saved to the `User` model.
+- Avatar can be uploaded (max 2MB JPEG/PNG); stored in S3; displayed in nav.
+- Profile changes do not require re-login.
+
+---
+
+## EPIC R: Billing and subscription
+
+> Billing is required before any customer pays. The recommended approach is Stripe. Free alternative: keep billing out of the product and handle it manually (invoice + env flag to enable/disable workspace) for the first 10 customers.
+
+---
+Summary: R1 Workspace billing status flag and enforcement
+Issue Type: Story
+Priority: P1
+Story Points: 3
+Description: Before full Stripe integration, workspaces need a billing status flag that can be set by an operator. When `billingStatus=suspended`, the workspace is locked to read-only and users see a banner.
+Acceptance Criteria:
+- `Workspace` model gains `billingStatus: active | trialing | suspended | cancelled` (default: `trialing`).
+- New `trialEndsAt: DateTime?` field; trial defaults to 14 days from workspace creation.
+- API returns HTTP 402 for mutating operations when `billingStatus=suspended`.
+- Web app shows a non-dismissable banner: "Your trial has ended. Contact us to continue." when suspended.
+- Operator endpoint `PATCH /ops/workspaces/:id/billing-status` (admin role required) sets billing status.
+
+---
+Summary: R2 Stripe customer and subscription creation
+Issue Type: Story
+Priority: P1
+Story Points: 8
+Description: Integrate Stripe Checkout for workspace subscription management. Free alternative: skip and use R1 manual flag only.
+Acceptance Criteria:
+- `POST /billing/checkout-session` creates a Stripe Checkout Session for the workspace's subscription.
+- Stripe webhook handler (`POST /billing/webhook`) processes `checkout.session.completed`, `invoice.payment_failed`, `customer.subscription.deleted`.
+- On `checkout.session.completed`: set `billingStatus=active`, store `stripeCustomerId` and `stripeSubscriptionId` on Workspace.
+- On `invoice.payment_failed`: set `billingStatus=suspended` after grace period.
+- On `customer.subscription.deleted`: set `billingStatus=cancelled`.
+- Stripe webhook signature is verified (prevents spoofing).
+- `/settings/billing` page shows current plan, next billing date, and a "Manage billing" link (Stripe Customer Portal).
+- Stripe keys are stored as secrets; never logged.
+
+---
+Summary: R3 Usage limits and quota enforcement
+Issue Type: Story
+Priority: P2
+Story Points: 5
+Description: Plans need limits (seats, sessions per month, storage GB). Quota enforcement prevents abuse and ties to billing tier.
+Acceptance Criteria:
+- `WorkspaceQuota` model stores plan limits: `maxSeats`, `maxSessionsPerMonth`, `maxStorageGb`.
+- API enforces quotas: creating a new user errors with 402 when `maxSeats` exceeded; starting a session errors when `maxSessionsPerMonth` exceeded.
+- Quota usage is surfaced in `/settings/billing` as a usage bar.
+- Operators can override quotas for enterprise accounts.
+
+---
+
+## EPIC S: Transactional email
+
+---
+Summary: S1 Email service integration (Resend or SendGrid)
+Issue Type: Story
+Priority: P0
+Story Points: 3
+Description: No transactional email exists. Invitations (Q1), password resets, session notifications, and digest emails all require an email sending service. Recommended: Resend (generous free tier). Alternative: SendGrid (also free tier).
+Acceptance Criteria:
+- `packages/email` package wraps the email provider SDK with a simple `sendEmail({ to, subject, html })` interface.
+- Provider is configurable via `EMAIL_PROVIDER=resend|sendgrid|log` env var; `log` mode prints to stdout for dev/test.
+- API key stored as a secret; never logged.
+- All outbound emails use the workspace's configured `fromEmail` or fall back to the platform default.
+- Email sends are retried up to 3 times via BullMQ job; failures are recorded in `AuditEvent`.
+- `EMAIL_FROM` and `EMAIL_REPLY_TO` env vars configure defaults.
+
+---
+Summary: S2 Workspace invitation email
+Issue Type: Story
+Priority: P0
+Story Points: 2
+Description: When an admin invites a team member (Q1), an email must be sent with the invitation link.
+Acceptance Criteria:
+- Email subject: "You've been invited to [WorkspaceName] on Sensehub"
+- Body includes: inviting admin's name, workspace name, role being granted, accept link (expires in 24h), and a plain-text fallback URL.
+- Email is sent asynchronously via BullMQ; failures do not block the API response.
+- Invitation email is re-sendable from the team management page.
+- Unsubscribe link is present per CAN-SPAM/GDPR (links to preferences or one-click unsubscribe).
+
+---
+Summary: S3 Welcome email on first workspace login
+Issue Type: Story
+Priority: P1
+Story Points: 2
+Description: First-time users (no prior login) should receive a welcome email after they create or join a workspace.
+Acceptance Criteria:
+- Welcome email sent on first successful login (tracked by `User.lastLoginAt IS NULL` before this login).
+- Subject: "Welcome to Sensehub – here's how to get started"
+- Body: 3-step quick-start guide (create a project, run a study, review insights), links to help docs.
+- Sent within 60 seconds of login.
+
+---
+Summary: S4 Session completion and insight ready notifications
+Issue Type: Story
+Priority: P2
+Story Points: 3
+Description: Researchers need email alerts when a session completes transcription and when AI insights are ready for review. Currently notifications exist in-app only.
+Acceptance Criteria:
+- When a `Session` transitions to `complete` and transcription is done, send an email to the assigned researcher.
+- When an `Insight` is ready for review (status changes to `pending_review`), send an email to the reviewer.
+- Both emails are controlled by per-user notification preferences (`UserNotificationPreferences` model).
+- Users can unsubscribe from individual notification types from `/settings/notifications`.
+- Email digest mode: option to batch notifications into a daily summary instead of individual emails.
+
+---
+
+## EPIC T: Product polish — error pages, empty states, loading states, toasts
+
+> Without these, the product looks unfinished and customers lose trust. These are table-stakes for GA.
+
+---
+Summary: T1 Global error pages (404, 500, 403, maintenance)
+Issue Type: Story
+Priority: P0
+Story Points: 2
+Description: Next.js serves its default error pages. Customers see a generic white page on errors.
+Acceptance Criteria:
+- `app/not-found.tsx` implements a branded 404 page with a "Go home" link and search bar.
+- `app/error.tsx` implements a branded 500 page with "Try again" and "Contact support" links.
+- `app/global-error.tsx` handles unrecoverable errors at the root layout level.
+- A static `app/maintenance/page.tsx` page exists for planned downtime; deployable via feature flag or DNS redirect.
+- All error pages preserve the navigation header so users aren't stranded.
+
+---
+Summary: T2 Empty states for all data-heavy pages
+Issue Type: Story
+Priority: P1
+Story Points: 5
+Description: When a new workspace has no projects, studies, insights, etc., pages render blank. Empty states guide users toward their first action.
+Acceptance Criteria:
+- Every list page (`/projects`, `/studies`, `/insights`, `/search`, `/notifications`, `/reports`, `/stories`, `/reviews`, `/approvals`) has an empty state component.
+- Empty state shows: an icon, a headline (e.g. "No projects yet"), a one-line description, and a CTA button ("Create project").
+- Empty states differ for "no data exists" vs "no results match your filter/search".
+- Empty states are implemented as a shared `<EmptyState>` component in `components/`.
+
+---
+Summary: T3 Loading skeletons for list and detail pages
+Issue Type: Story
+Priority: P1
+Story Points: 3
+Description: All pages that fetch data show no loading indicator; they either flash blank or hang visibly.
+Acceptance Criteria:
+- Each page that fetches data exports a `loading.tsx` (Next.js App Router) that shows a skeleton matching the page layout.
+- Skeleton uses pulse animation consistent with the brand design system.
+- Shared skeleton primitives (`<SkeletonLine>`, `<SkeletonCard>`, `<SkeletonTable>`) extracted to `components/skeleton.tsx`.
+- Time-to-interactive perception improves: skeleton appears within 100ms of navigation.
+
+---
+Summary: T4 Toast notification system
+Issue Type: Story
+Priority: P1
+Story Points: 3
+Description: User actions (creating a project, updating settings, accepting an invitation) have no feedback. Users don't know if their action succeeded.
+Acceptance Criteria:
+- A lightweight toast component (no paid library required; ~50 lines) is added to the root layout.
+- Toast variants: success (green), error (red), info (blue), warning (amber).
+- Toasts auto-dismiss after 5 seconds; dismissable by click.
+- A `useToast()` hook is exposed from `lib/toast.tsx` for client components.
+- Toast state is not persisted across navigation (intentional).
+- All mutating actions in the web app trigger an appropriate toast.
+
+---
+Summary: T5 Confirm dialogs for destructive actions
+Issue Type: Story
+Priority: P1
+Story Points: 2
+Description: Destructive actions (delete project, archive study, revoke token, remove team member) have no confirmation step.
+Acceptance Criteria:
+- A shared `<ConfirmDialog>` component prompts: "[Action] cannot be undone. Type the name to confirm."
+- Dialog is used for: delete project, delete study, remove team member, bulk archive, revoke API key.
+- Pressing Escape or clicking outside the dialog cancels without acting.
+- Confirm button is disabled until the required confirmation text is typed (for high-stakes deletions).
+
+---
+
+## EPIC U: Legal, compliance, and cookie consent
+
+---
+Summary: U1 Terms of Service and Privacy Policy pages
+Issue Type: Story
+Priority: P0
+Story Points: 1
+Description: The product has no ToS or Privacy Policy linked from the UI. This is a legal requirement before any external user accesses the system.
+Acceptance Criteria:
+- `/legal/terms` renders the Terms of Service (content to be supplied by legal team; a placeholder stub is acceptable for internal beta).
+- `/legal/privacy` renders the Privacy Policy.
+- Both pages are linked from: sign-in page footer, onboarding flow, and the main footer.
+- Pages are excluded from the auth middleware (publicly accessible without login).
+- Pages are statically rendered (no API calls).
+
+---
+Summary: U2 Cookie consent banner (GDPR / ePrivacy)
+Issue Type: Story
+Priority: P0
+Story Points: 3
+Description: The product sets session cookies and potentially analytics cookies without obtaining consent. This is non-compliant for EU users.
+Acceptance Criteria:
+- A consent banner appears on first visit for users in GDPR jurisdictions (or globally for simplicity).
+- Banner offers: "Accept all", "Reject non-essential", "Manage preferences".
+- Strictly necessary cookies (session cookie) are always set and not consent-gated.
+- Analytics cookies (epic V) are only set after consent.
+- Consent preference is stored in a `__consent` cookie (1-year expiry); banner does not re-appear after consent is given.
+- Consent preferences are honoured; analytics are not loaded if rejected.
+- Banner is WCAG 2.1 AA accessible (keyboard navigable, ARIA labelled).
+
+---
+Summary: U3 GDPR data subject request flow
+Issue Type: Story
+Priority: P1
+Story Points: 5
+Description: EU customers are required to support data subject rights: access, portability, erasure, and restriction. Currently no self-service mechanism exists.
+Acceptance Criteria:
+- `/settings/privacy` page allows users to:
+  - Download their data (exports all records associated with their `sub` claim as JSON).
+  - Request account deletion (creates a `DataDeletionRequest` with 30-day processing window).
+- Workspace admins can submit deletion requests for participant data.
+- `DataDeletionRequest` triggers a BullMQ job that anonymises or deletes PII per the configured retention policy.
+- Deletion confirmation email is sent to the requestor.
+- All requests are logged in `AuditEvent` with `action: data_deletion_request`.
+
+---
+Summary: U4 Content Security Policy (CSP) headers
+Issue Type: Story
+Priority: P1
+Story Points: 2
+Description: The web app has basic security headers (X-Frame-Options, X-Content-Type-Options) but no Content Security Policy. CSP prevents XSS by restricting script/style sources.
+Acceptance Criteria:
+- A strict CSP is added to `next.config.mjs` headers.
+- Directives include: `default-src 'self'`, `script-src 'self' 'nonce-{NONCE}'`, `style-src 'self' 'unsafe-inline'` (acceptable for Tailwind until CSS-in-JS is used), `img-src 'self' data: blob:`, `media-src 'self' blob:`, `connect-src 'self' <API_URL>`.
+- A nonce is generated per request and injected into Next.js via middleware.
+- No `unsafe-eval` in production.
+- CSP violations are reported to `/api/csp-report` (endpoint logs and discards).
+- CSP is tested with a scanner (e.g. securityheaders.com) and achieves A grade.
+
+---
+
+## EPIC V: Customer-facing analytics and usage reporting
+
+---
+Summary: V1 Privacy-preserving product analytics
+Issue Type: Story
+Priority: P2
+Story Points: 3
+Description: No analytics exist. The team cannot see which features customers use or where they drop off. Recommended: Posthog (self-hostable, GDPR-friendly, free tier). Alternative: Plausible (privacy-first, EU-hosted, paid).
+Acceptance Criteria:
+- Analytics provider is integrated in the web app via a client component loaded only after cookie consent (U2).
+- Tracked events: page view, login, workspace created, project created, study started, session completed, insight approved, export downloaded.
+- No PII (names, emails, transcript content) is sent to the analytics provider.
+- Workspace ID and role are sent as anonymous properties.
+- Analytics provider API key is stored in a public env var (`NEXT_PUBLIC_ANALYTICS_KEY`).
+- Analytics can be fully disabled by setting `NEXT_PUBLIC_ANALYTICS_KEY=` to empty.
+
+---
+Summary: V2 Workspace usage dashboard for admins
+Issue Type: Story
+Priority: P2
+Story Points: 5
+Description: Workspace admins have no view of how their team uses the product or where they are against quotas.
+Acceptance Criteria:
+- `/settings/usage` page shows (for the current month):
+  - Sessions run vs quota (`maxSessionsPerMonth`).
+  - Storage used vs quota (`maxStorageGb`).
+  - Active seats vs quota (`maxSeats`).
+  - Daily session chart (last 30 days).
+  - Top 5 projects by session count.
+- Data comes from a new `GET /workspaces/:id/usage` API endpoint.
+- Page refreshes daily (SWR revalidation or static ISR with 1-hour TTL).
+- Admins only; other roles see a 403 empty state.
+
+---
+
+## EPIC W: Customer help and support
+
+---
+Summary: W1 In-app help links and documentation
+Issue Type: Story
+Priority: P1
+Story Points: 2
+Description: There are no help links, tooltips, or documentation pointers anywhere in the product. Users hit dead ends with no guidance.
+Acceptance Criteria:
+- A "?" icon in the global header links to `/help` or an external documentation URL (configurable via `NEXT_PUBLIC_DOCS_URL` env var).
+- Every major feature page has a "Learn more" link to the relevant documentation section.
+- Empty states (T2) include a documentation link.
+- A `<Tooltip>` component is available for explaining non-obvious fields or concepts.
+
+---
+Summary: W2 In-app support widget
+Issue Type: Story
+Priority: P2
+Story Points: 3
+Description: Customers need a way to contact support without leaving the product. Recommended: plain mailto link for beta. Upgrade to Intercom/Crisp for GA.
+Acceptance Criteria:
+- A "Support" button in the footer or help dropdown opens a contact modal.
+- For beta: modal contains a mailto link pre-filled with workspace ID and user ID for context.
+- For GA: integrates a live-chat widget (Intercom or Crisp) loaded after cookie consent.
+- Support widget is not shown for client portal users (different support tier).
+
+---
+Summary: W3 Status page integration
+Issue Type: Story
+Priority: P2
+Story Points: 1
+Description: Customers need to check if the platform is down without contacting support. Recommended: Statuspage.io (free tier) or BetterUptime.
+Acceptance Criteria:
+- A status page is provisioned (Statuspage.io or equivalent).
+- Login page and help widget link to the status page.
+- When `platformStatus != operational`, a banner is shown on the login page.
+- Status is checked via a public JSON endpoint (`NEXT_PUBLIC_STATUS_URL`).
+
+---
+
+## EPIC X: Accessibility and mobile
+
+---
+Summary: X1 WCAG 2.1 AA audit and remediation
+Issue Type: Story
+Priority: P1
+Story Points: 8
+Description: No accessibility audit has been performed. Enterprise customers (regulated industries, government) require WCAG 2.1 AA compliance.
+Acceptance Criteria:
+- An automated audit is run with axe-core on all major pages; zero critical violations.
+- All interactive elements are keyboard navigable and have visible focus indicators.
+- All images have `alt` text; all form inputs have associated `<label>` elements.
+- Colour contrast ratios meet WCAG AA (4.5:1 for normal text, 3:1 for large text).
+- Modals and dialogs trap focus and restore it on close.
+- Screen reader testing performed on login, project creation, study launch, insight review flows.
+- Accessibility statement published at `/legal/accessibility`.
+
+---
+Summary: X2 Mobile-responsive layout audit
+Issue Type: Story
+Priority: P2
+Story Points: 5
+Description: The product is used by researchers in fieldwork on tablets and phones. Current layout has not been tested at mobile breakpoints.
+Acceptance Criteria:
+- All pages render correctly at 375px (iPhone SE), 768px (iPad), and 1280px (desktop) viewport widths.
+- Navigation collapses to a hamburger menu on mobile.
+- Tables reformat to stacked cards or horizontal scroll on mobile.
+- Media upload and video player work on iOS Safari and Android Chrome.
+- Touch targets are a minimum of 44×44px.
+
+---
+
+## EPIC Y: Self-service SSO configuration
+
+---
+Summary: Y1 Admin SSO configuration UI
+Issue Type: Story
+Priority: P2
+Story Points: 5
+Description: Currently SSO is configured via environment variables set by an operator. Enterprise customers need to configure their own IdP (Okta, Azure AD, Google Workspace) through the product UI.
+Acceptance Criteria:
+- `/settings/sso` page allows workspace admins to configure OIDC: issuer URL, client ID, client secret, allowed domains, group-to-role mapping.
+- Configuration is stored encrypted on the `Workspace` model (or a `WorkspaceSsoConfig` relation).
+- A "Test connection" button verifies the OIDC discovery document is reachable and the credentials are valid before saving.
+- Once SSO is configured for a workspace, only users matching the allowed domains can join.
+- Admins can toggle "Require SSO" to prevent password-based login (if supported by IdP).
+- SSO config changes are logged in `AuditEvent`.
+
+---
+Summary: Y2 SAML 2.0 support (enterprise tier)
+Issue Type: Story
+Priority: P3
+Story Points: 13
+Description: Large enterprises (banks, government, pharma) often mandate SAML 2.0 rather than OIDC.
+Acceptance Criteria:
+- API supports SAML 2.0 SP-initiated SSO using `node-saml` or `samlify`.
+- SP metadata endpoint exposed at `/sso/saml/metadata`.
+- SAML assertion attributes are mapped to the same `{ sub, workspaceId, role }` claims as OIDC.
+- Admin UI allows uploading IdP metadata XML and configuring attribute mapping.
+- SAML sessions support the same revocation and JTI mechanism as OIDC.
+
+---
+
+## EPIC Z: Operator tooling
+
+---
+Summary: Z1 Operator admin panel (internal)
+Issue Type: Story
+Priority: P1
+Story Points: 5
+Description: The operations team needs to manage workspaces, toggle billing flags, inspect audit logs, and impersonate users for support without direct database access.
+Acceptance Criteria:
+- `/ops/admin` page (guarded by `superadmin` role, not visible to regular admins) lists all workspaces.
+- Operator can: suspend/reactivate a workspace, reset billing trial, trigger data deletion, view workspace audit logs.
+- Impersonation: operator can generate a scoped short-lived token for any workspace to debug issues; impersonation is logged in `AuditEvent` with `action: operator_impersonation`.
+- All operator actions require a second confirmation step.
+- Operator panel is inaccessible to non-superadmin tokens; enforced at the API level.
+
+---
+Summary: Z2 Workspace provisioning API for sales/CS team
+Issue Type: Story
+Priority: P1
+Story Points: 2
+Description: The sales team needs to provision workspaces for new enterprise customers without asking engineering to run database scripts.
+Acceptance Criteria:
+- Internal API endpoint `POST /ops/workspaces` (superadmin role) provisions a workspace with custom slug, plan, and seat limit.
+- Endpoint accepts an optional `ownerEmail` and sends them a welcome email directly into the workspace.
+- Response includes the workspace ID, admin invite link, and a temporary setup URL.
+- Endpoint is documented in the ops runbook.
+
