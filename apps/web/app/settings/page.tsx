@@ -312,6 +312,22 @@ export default function SettingsPage() {
       <p className="mt-2 text-sm text-gray-600">
         Configure retention and privacy controls for this workspace.
       </p>
+
+      <div className="mt-4 flex flex-wrap gap-3">
+        {[
+          { href: "/settings/billing", label: "Billing & plan" },
+          { href: "/settings/usage", label: "Usage dashboard" },
+          { href: "/settings/sso", label: "Single sign-on" },
+        ].map(({ href, label }) => (
+          <a
+            key={href}
+            href={href}
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+          >
+            {label} →
+          </a>
+        ))}
+      </div>
       {settings ? (
         <div className="mt-6 max-w-xl space-y-4 rounded-2xl bg-white p-6 shadow-sm">
           <label className="text-sm text-gray-600">

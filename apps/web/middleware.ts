@@ -18,8 +18,10 @@ const PUBLIC_PREFIXES = [
   "/api/auth/",
   "/api/healthz",
   "/api/invite/",
+  "/api/p/",       // participant interview proxy routes (token-gated, no session cookie)
   "/invite/",
   "/embed/",
+  "/p/",           // participant interview pages (Glaut-style guided flow)
   "/_next/",
   "/favicon",
   "/maintenance",

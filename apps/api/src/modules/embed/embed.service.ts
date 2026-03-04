@@ -47,9 +47,15 @@ export class EmbedService {
         select: { workspaceId: true, projectId: true },
       });
       if (study) {
+        // Look up the workspace's first admin to notify; fall back to "system"
+        const adminUser = await this.prisma.user.findFirst({
+          where: { workspaceId: study.workspaceId },
+          orderBy: { createdAt: "asc" },
+          select: { id: true },
+        }).catch(() => null);
         await this.prisma.notification.create({
           data: {
-            userId: "demo-user",
+            userId: adminUser?.id ?? "system",
             type: "embed.completed",
             payload: { studyId, projectId: study.projectId, ...payload },
           },
@@ -124,6 +130,33 @@ export class EmbedService {
         content: input.content,
       },
     });
+  }
+
+  async getStudyInfo(token: string) {
+    const { studyId } = this.verifyToken(token);
+    const study = await this.prisma.study.findUnique({
+      where: { id: studyId },
+      select: { id: true, name: true, mode: true, language: true, interviewGuide: true },
+    });
+    if (!study) throw new UnauthorizedException("Study not found");
+
+    type GuideQuestion = { id?: string; prompt: string; type?: string; followUp?: string };
+    const guide = study.interviewGuide as GuideQuestion[] | null;
+    const questions = (Array.isArray(guide) ? guide : []).map((q, i) => ({
+      id: q.id ?? `q${i}`,
+      prompt: q.prompt ?? "",
+      type: q.type ?? "text",
+      followUp: q.followUp ?? null,
+    }));
+
+    return {
+      studyId: study.id,
+      studyName: study.name,
+      mode: study.mode,
+      language: study.language,
+      estimatedMinutes: Math.max(5, Math.ceil(questions.length * 2)),
+      questions,
+    };
   }
 
   async updateConsent(input: { sessionId: string; consented: boolean }) {

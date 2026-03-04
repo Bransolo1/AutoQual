@@ -54,9 +54,12 @@ model Workspace {
   name      String
   slug      String   @unique
   logoUrl   String?
-  billingStatus String @default("trialing")
-  trialEndsAt   DateTime?
-  retentionDays Int @default(365)
+  billingStatus         String    @default("trialing")
+  trialEndsAt           DateTime?
+  stripeCustomerId      String?
+  stripeSubscriptionId  String?
+  ssoConfig             Json?
+  retentionDays         Int       @default(365)
   auditRetentionEnabled Boolean @default(false)
   auditRetentionDays Int @default(365)
   piiRedactionEnabled Boolean @default(true)

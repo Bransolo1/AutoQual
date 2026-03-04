@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Req } from "@nestjs/common";
 import { WorkspacesService } from "./workspaces.service";
 import { CreateWorkspaceInput, UpdateWorkspaceSettingsInput } from "./workspaces.dto";
 import { Roles } from "../../auth/roles.decorator";
@@ -73,5 +73,30 @@ export class WorkspacesController {
   acceptInvitation(@Param("token") token: string, @Req() req: Request) {
     const user = (req as Request & { user?: JwtPayload }).user;
     return this.workspacesService.acceptInvitation(token, user?.sub, user?.email);
+  }
+
+  @Get(":id/usage")
+  @Roles("admin")
+  getUsage(@Param("id") id: string) {
+    return this.workspacesService.getUsage(id);
+  }
+
+  @Get(":id/sso-config")
+  @Roles("admin")
+  getSsoConfig(@Param("id") id: string) {
+    return this.workspacesService.getSsoConfig(id);
+  }
+
+  @Put(":id/sso-config")
+  @Roles("admin")
+  saveSsoConfig(@Param("id") id: string, @Body() body: Record<string, unknown>, @Req() req: Request) {
+    const actor = (req as Request & { user?: JwtPayload }).user;
+    return this.workspacesService.saveSsoConfig(id, body, actor?.sub ?? "system");
+  }
+
+  @Post(":id/sso-config/test")
+  @Roles("admin")
+  testSsoConfig(@Param("id") id: string) {
+    return this.workspacesService.testSsoConfig(id);
   }
 }

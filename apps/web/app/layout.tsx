@@ -50,6 +50,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <nav aria-label="Main navigation" className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
               <a href="/projects" className="hover:text-slate-950">Projects</a>
               <a href="/studies" className="hover:text-slate-950">Studies</a>
+              <a href="/fieldwork" className="hover:text-slate-950">Fieldwork</a>
               <a href="/insights" className="hover:text-slate-950">Insights</a>
               <a href="/approvals" className="hover:text-slate-950">Approvals</a>
               <a href="/reports" className="hover:text-slate-950">Reports</a>

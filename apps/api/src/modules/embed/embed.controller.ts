@@ -23,6 +23,12 @@ export class EmbedController {
   }
 
   @Public()
+  @Get(":token/study")
+  getStudyInfo(@Param("token") token: string) {
+    return this.embedService.getStudyInfo(token);
+  }
+
+  @Public()
   @Get(":token")
   serveEmbed(@Param("token") token: string, @Res() res: Response) {
     const payload = this.embedService.verifyToken(token);

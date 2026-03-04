@@ -179,6 +179,84 @@ export class WorkspacesService {
     });
   }
 
+  async getUsage(workspaceId: string) {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [sessionsThisMonth, activeSeats] = await Promise.all([
+      this.prisma.session.count({
+        where: {
+          study: { workspaceId },
+          createdAt: { gte: startOfMonth },
+        },
+      }),
+      this.prisma.user.count({ where: { workspaceId } }),
+    ]);
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const recentSessions = await this.prisma.session.findMany({
+      where: { study: { workspaceId }, createdAt: { gte: thirtyDaysAgo } },
+      select: { createdAt: true },
+    });
+
+    const dailyMap: Record<string, number> = {};
+    for (const s of recentSessions) {
+      const dateKey = s.createdAt.toISOString().slice(0, 10);
+      dailyMap[dateKey] = (dailyMap[dateKey] ?? 0) + 1;
+    }
+    const dailySessions = Object.entries(dailyMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, count]) => ({ date, count }));
+
+    return { sessionsThisMonth, storageBytes: 0, activeSeats, dailySessions };
+  }
+
+  async getSsoConfig(workspaceId: string) {
+    const ws = await this.prisma.workspace.findUniqueOrThrow({
+      where: { id: workspaceId },
+      select: { ssoConfig: true },
+    });
+    const config = ws.ssoConfig as Record<string, unknown> | null;
+    if (!config) return null;
+    const { clientSecret: _stripped, ...safe } = config as { clientSecret?: unknown };
+    return safe;
+  }
+
+  async saveSsoConfig(workspaceId: string, config: Record<string, unknown>, actorUserId: string) {
+    await this.prisma.workspace.update({
+      where: { id: workspaceId },
+      data: { ssoConfig: config },
+    });
+    await this.prisma.auditEvent.create({
+      data: {
+        workspaceId,
+        actorUserId,
+        action: "workspace.sso_config.updated",
+        entityType: "workspace",
+        entityId: workspaceId,
+        metadata: { issuerUrl: config.issuerUrl ?? null, clientId: config.clientId ?? null },
+      },
+    });
+    return { ok: true };
+  }
+
+  async testSsoConfig(workspaceId: string) {
+    const ws = await this.prisma.workspace.findUniqueOrThrow({
+      where: { id: workspaceId },
+      select: { ssoConfig: true },
+    });
+    const config = ws.ssoConfig as { issuerUrl?: string } | null;
+    if (!config?.issuerUrl) return { ok: false, error: "No issuer URL configured" };
+    try {
+      const url = `${config.issuerUrl.replace(/\/$/, "")}/.well-known/openid-configuration`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (!res.ok) return { ok: false, error: `OIDC discovery returned HTTP ${res.status}` };
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: String(err) };
+    }
+  }
+
   async acceptInvitation(token: string, acceptorSub?: string, acceptorEmail?: string) {
     const invitation = await this.prisma.workspaceInvitation.findUnique({ where: { token } });
     if (!invitation) throw new Error("Invitation not found");

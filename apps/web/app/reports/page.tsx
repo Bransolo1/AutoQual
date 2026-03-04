@@ -14,7 +14,7 @@ type ReportJson = {
 
 export default function ReportsPage() {
   const { apiFetch, user } = useApi();
-  const [studyId, setStudyId] = useState("demo-study-id");
+  const [studyId, setStudyId] = useState("");
   const [markdown, setMarkdown] = useState("");
   const [json, setJson] = useState<ReportJson | null>(null);
   const [pptOutline, setPptOutline] = useState<string[]>([]);
@@ -30,10 +30,10 @@ export default function ReportsPage() {
   const loadReport = async () => {
     setStatus("Loading report...");
     const [mdRes, jsonRes, pptRes, recapRes] = await Promise.all([
-      apiFetch(`/exports/study/${studyId}/markdown`)),
-      apiFetch(`/exports/study/${studyId}/json`)),
-      apiFetch(`/exports/study/${studyId}/ppt-outline`)),
-      apiFetch(`/exports/study/${studyId}/audio-recap`)),
+      apiFetch(`/exports/study/${studyId}/markdown`),
+      apiFetch(`/exports/study/${studyId}/json`),
+      apiFetch(`/exports/study/${studyId}/ppt-outline`),
+      apiFetch(`/exports/study/${studyId}/audio-recap`),
     ]);
 
     if (!mdRes.ok || !jsonRes.ok || !pptRes.ok || !recapRes.ok) {
@@ -46,20 +46,19 @@ export default function ReportsPage() {
     setPptOutline((pptPayload?.slides ?? []).map((slide: { title: string }) => slide.title));
     const recapPayload = await recapRes.json();
     setAudioRecap(recapPayload?.script ?? "");
-    const bundleRes = await apiFetch(`/exports/study/${studyId}/evidence-bundle`));
+    const bundleRes = await apiFetch(`/exports/study/${studyId}/evidence-bundle`);
     const bundlePayload = bundleRes.ok ? await bundleRes.json() : null;
     setEvidenceBundle(
       (bundlePayload?.clips ?? []).map((clip: { id: string; storageKey: string }) =>
         `${clip.id} · ${clip.storageKey}`,
       ),
     );
-    const exportsRes = await apiFetch(`/exports?studyId=${studyId}`));
+    const exportsRes = await apiFetch(`/exports?studyId=${studyId}`);
     const exportsList = exportsRes.ok ? await exportsRes.json() : [];
     const latestExport = exportsList?.[0];
     if (latestExport?.id) {
-      const approvalsRes = await fetch(
+      const approvalsRes = await apiFetch(
         `/approvals?linkedEntityType=report&linkedEntityId=${latestExport.id}`,
-        { },
       );
       setReportApprovals(approvalsRes.ok ? await approvalsRes.json() : []);
     } else {
@@ -151,15 +150,14 @@ export default function ReportsPage() {
                     type="button"
                     onClick={async () => {
                       if (!clipThumbnails[clip.id]) {
-                        const thumbRes = await apiFetch(`/media/clips/${clip.id}/thumbnail`));
+                        const thumbRes = await apiFetch(`/media/clips/${clip.id}/thumbnail`);
                         const thumb = thumbRes.ok ? await thumbRes.json() : null;
                         if (thumb?.thumbnailUrl) {
                           setClipThumbnails((prev) => ({ ...prev, [clip.id]: thumb.thumbnailUrl }));
                         }
                       }
-                      const res = await fetch(
+                      const res = await apiFetch(
                         `/media/artifacts/${clip.mediaArtifactId}/signed-url`,
-                        { },
                       );
                       const data = res.ok ? await res.json() : null;
                       setClipUrl(data?.url ?? null);

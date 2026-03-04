@@ -49,7 +49,7 @@ export default function InsightDetailPage() {
   const role = searchParams?.get("role") ?? "researcher";
   useEffect(() => {
     if (!id) return;
-    apiFetch(`/insights/${id}`))
+    apiFetch(`/insights/${id}`)
       .then((r) => (r.ok ? r.json() : null))
       .then(setInsight);
   }, [id]);
@@ -61,7 +61,7 @@ export default function InsightDetailPage() {
   }, [insight]);
 
   const refreshInsight = async () => {
-    const res = await apiFetch(`/insights/${id}`));
+    const res = await apiFetch(`/insights/${id}`);
     setInsight(res.ok ? await res.json() : null);
   };
 
