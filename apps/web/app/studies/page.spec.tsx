@@ -14,17 +14,23 @@ describe("StudiesPage", () => {
         } as Response;
       }),
     );
+    // localStorage is used by the wizard to persist state
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn(() => null),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+    });
   });
 
-  it("renders analysis quality guidance", () => {
+  it("renders the study wizard with step navigation", () => {
     render(<StudiesPage />);
 
-    expect(screen.getByText("Studies")).toBeInTheDocument();
-    expect(screen.getByText("Analysis quality")).toBeInTheDocument();
+    expect(screen.getByText("Study wizard")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Evidence gaps will block insight set approvals until clips or transcript spans are attached.",
-      ),
+      screen.getByText("Step-by-step setup for briefs, recruitment, moderation, and activation."),
     ).toBeInTheDocument();
+    // Step labels should all be rendered
+    expect(screen.getByText(/Objective/)).toBeInTheDocument();
+    expect(screen.getByText(/Recruitment/)).toBeInTheDocument();
   });
 });

@@ -34,9 +34,9 @@ export class StudiesController {
   @Post(":id/screening")
   updateScreening(
     @Param("id") id: string,
-    @Body() body: { screeningLogic: Record<string, unknown> },
+    @Body() body: Record<string, unknown>,
   ) {
-    return this.studiesService.updateScreeningLogic(id, body.screeningLogic ?? {});
+    return this.studiesService.updateScreeningLogic(id, body ?? {});
   }
 
   @Post(":id/guide")
