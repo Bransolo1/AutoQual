@@ -8,10 +8,35 @@ type StudyInfo = {
   studyId: string;
   studyName: string;
   mode: string;
+  language: string;
   questions: Question[];
 };
 
 type RecordingState = "idle" | "recording" | "done";
+
+// Browser speech recognition type shim
+type SpeechRecognitionEvent = Event & {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+};
+declare global {
+  interface Window {
+    SpeechRecognition?: new () => SpeechRecognitionInstance;
+    webkitSpeechRecognition?: new () => SpeechRecognitionInstance;
+  }
+}
+interface SpeechRecognitionInstance extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onresult: ((e: SpeechRecognitionEvent) => void) | null;
+  onspeechend: (() => void) | null;
+  onerror: ((e: Event) => void) | null;
+  onend: (() => void) | null;
+}
 
 export default function QuestionPage() {
   const params = useParams<{ token: string; n: string }>();
@@ -25,32 +50,75 @@ export default function QuestionPage() {
   const [recordingState, setRecordingState] = useState<RecordingState>("idle");
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [liveTranscript, setLiveTranscript] = useState("");
+  const [finalTranscript, setFinalTranscript] = useState("");
   const [showFollowUp, setShowFollowUp] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [muted, setMuted] = useState(false);
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const cached = sessionStorage.getItem(`study:${token}`);
     const sid = sessionStorage.getItem(`session:${token}`);
     if (cached) setStudy(JSON.parse(cached) as StudyInfo);
     if (sid) setSessionId(sid);
+    const mutedPref = sessionStorage.getItem("voice:muted");
+    if (mutedPref === "true") setMuted(true);
   }, [token]);
 
   const question = study?.questions[qIndex] ?? null;
   const totalQuestions = study?.questions.length ?? 0;
-  const progress = totalQuestions > 0 ? ((qIndex) / totalQuestions) * 100 : 0;
-
-  // Determine response mode: prefer study.mode, fallback to question.type
+  const progress = totalQuestions > 0 ? (qIndex / totalQuestions) * 100 : 0;
   const mode = study?.mode === "voice" || question?.type === "voice" ? "voice" : "text";
 
-  // ---- Recording ----
+  // ── TTS: speak the question aloud when it loads ──────────────────────────
+  useEffect(() => {
+    if (!question || mode !== "voice" || muted) return;
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+
+    const text = showFollowUp && question.followUp ? question.followUp : question.prompt;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = study?.language ?? "en-US";
+    utter.rate = 0.9;
+    window.speechSynthesis.speak(utter);
+
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  }, [question, showFollowUp, mode, muted, study?.language]);
+
+  function repeatQuestion() {
+    if (!question || !window.speechSynthesis) return;
+    const text = showFollowUp && question.followUp ? question.followUp : question.prompt;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = study?.language ?? "en-US";
+    utter.rate = 0.9;
+    window.speechSynthesis.speak(utter);
+  }
+
+  function toggleMute() {
+    const next = !muted;
+    setMuted(next);
+    sessionStorage.setItem("voice:muted", String(next));
+    if (next) window.speechSynthesis?.cancel();
+  }
+
+  // ── STT: start speech recognition alongside MediaRecorder ────────────────
   const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mr = new MediaRecorder(stream);
       chunksRef.current = [];
+      setLiveTranscript("");
+      setFinalTranscript("");
+
       mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       mr.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
@@ -62,16 +130,75 @@ export default function QuestionPage() {
       mr.start();
       mediaRecorderRef.current = mr;
       setRecordingState("recording");
+
+      // Start speech recognition if available
+      const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition;
+      if (SR) {
+        const recognition = new SR();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = study?.language ?? "en-US";
+
+        let accumulated = "";
+
+        recognition.onresult = (e: SpeechRecognitionEvent) => {
+          let interim = "";
+          for (let i = e.resultIndex; i < e.results.length; i++) {
+            const r = e.results[i];
+            if (r.isFinal) {
+              accumulated += r[0].transcript + " ";
+            } else {
+              interim += r[0].transcript;
+            }
+          }
+          setFinalTranscript(accumulated);
+          setLiveTranscript(accumulated + interim);
+
+          // Reset silence timer on new speech
+          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        };
+
+        recognition.onspeechend = () => {
+          // Auto-stop after 2s of silence
+          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = setTimeout(() => {
+            recognitionRef.current?.stop();
+            mediaRecorderRef.current?.stop();
+          }, 2000);
+        };
+
+        recognition.onerror = () => {
+          // Recognition errors are non-fatal — recording still works
+        };
+
+        recognition.start();
+        recognitionRef.current = recognition;
+      }
     } catch {
       setError("Microphone access denied. Please allow microphone and try again.");
     }
-  }, []);
+  }, [study?.language]);
 
   const stopRecording = useCallback(() => {
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    recognitionRef.current?.stop();
+    recognitionRef.current = null;
     mediaRecorderRef.current?.stop();
   }, []);
 
-  // ---- Submit ----
+  function resetRecording() {
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    recognitionRef.current?.abort();
+    recognitionRef.current = null;
+    mediaRecorderRef.current?.stop();
+    setAudioBlob(null);
+    setAudioUrl(null);
+    setLiveTranscript("");
+    setFinalTranscript("");
+    setRecordingState("idle");
+  }
+
+  // ── Submit ────────────────────────────────────────────────────────────────
   async function submit() {
     if (!question || !sessionId) return;
     setSubmitting(true);
@@ -79,10 +206,14 @@ export default function QuestionPage() {
 
     let content = textAnswer.trim();
 
-    // For voice: convert blob to base64 text representation (server stores as text turn)
-    if (mode === "voice" && audioBlob) {
-      // Store a placeholder; actual audio uploaded via /interview page if needed
-      content = `[voice response — ${Math.round(audioBlob.size / 1024)} KB audio recorded]`;
+    if (mode === "voice") {
+      // Use real STT transcript if available, otherwise note audio was recorded
+      const transcript = finalTranscript.trim();
+      if (transcript) {
+        content = transcript;
+      } else if (audioBlob) {
+        content = `[voice response — ${Math.round(audioBlob.size / 1024)} KB audio recorded]`;
+      }
     }
 
     if (!content) {
@@ -99,7 +230,6 @@ export default function QuestionPage() {
 
     // Show follow-up if available, then advance
     if (question.followUp && !showFollowUp) {
-      // Record follow-up prompt as a system/moderator turn
       await fetch("/api/p/turn", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -109,6 +239,8 @@ export default function QuestionPage() {
       setTextAnswer("");
       setAudioBlob(null);
       setAudioUrl(null);
+      setLiveTranscript("");
+      setFinalTranscript("");
       setRecordingState("idle");
       setSubmitting(false);
       return;
@@ -122,6 +254,8 @@ export default function QuestionPage() {
       setTextAnswer("");
       setAudioBlob(null);
       setAudioUrl(null);
+      setLiveTranscript("");
+      setFinalTranscript("");
       setRecordingState("idle");
       router.push(`/p/${token}/q/${next}`);
     }
@@ -135,7 +269,9 @@ export default function QuestionPage() {
     );
   }
 
-  const canSubmit = mode === "text" ? textAnswer.trim().length > 0 : recordingState === "done";
+  const canSubmit = mode === "text"
+    ? textAnswer.trim().length > 0
+    : recordingState === "done" && (finalTranscript.trim().length > 0 || audioBlob !== null);
 
   return (
     <main className="flex min-h-screen flex-col">
@@ -150,10 +286,30 @@ export default function QuestionPage() {
       {/* Content */}
       <div className="flex flex-1 flex-col items-center justify-center p-6">
         <div className="w-full max-w-xl">
-          {/* Counter */}
-          <p className="mb-4 text-sm font-medium text-slate-400">
-            Question {qIndex + 1} of {totalQuestions}
-          </p>
+          {/* Counter + voice controls */}
+          <div className="mb-4 flex items-center justify-between">
+            <p className="text-sm font-medium text-slate-400">
+              Question {qIndex + 1} of {totalQuestions}
+            </p>
+            {mode === "voice" && (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={repeatQuestion}
+                  className="rounded-lg px-2 py-1 text-xs text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                >
+                  ↺ Repeat
+                </button>
+                <button
+                  type="button"
+                  onClick={toggleMute}
+                  className="rounded-lg px-2 py-1 text-xs text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                >
+                  {muted ? "🔇 Muted" : "🔊 Mute"}
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Question / Follow-up prompt */}
           <div className="rounded-2xl bg-white p-8 shadow-sm">
@@ -200,24 +356,35 @@ export default function QuestionPage() {
                     </button>
                   )}
                   {recordingState === "recording" && (
-                    <button
-                      type="button"
-                      onClick={stopRecording}
-                      className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-800 text-white shadow-lg hover:bg-slate-700"
-                      aria-label="Stop recording"
-                    >
-                      <span className="h-5 w-5 rounded bg-white" />
-                    </button>
+                    <>
+                      <div className="relative">
+                        <span className="absolute inline-flex h-16 w-16 animate-ping rounded-full bg-red-400 opacity-40" />
+                        <button
+                          type="button"
+                          onClick={stopRecording}
+                          className="relative flex h-16 w-16 items-center justify-center rounded-full bg-slate-800 text-white shadow-lg hover:bg-slate-700"
+                          aria-label="Stop recording"
+                        >
+                          <span className="h-5 w-5 rounded bg-white" />
+                        </button>
+                      </div>
+                      <p className="text-xs text-slate-400">Listening… tap Stop to submit</p>
+                    </>
                   )}
-                  {recordingState === "recording" && (
-                    <p className="animate-pulse text-sm text-red-500">Recording…</p>
+                  {/* Live transcript */}
+                  {(recordingState === "recording" || recordingState === "done") && liveTranscript && (
+                    <div className="w-full rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+                      <p className={`text-sm leading-relaxed ${recordingState === "done" ? "text-slate-800" : "text-slate-400"}`}>
+                        {liveTranscript}
+                      </p>
+                    </div>
                   )}
-                  {recordingState === "done" && audioUrl && (
+                  {recordingState === "done" && (
                     <div className="w-full">
-                      <audio controls src={audioUrl} className="w-full" />
+                      {audioUrl && <audio controls src={audioUrl} className="w-full" />}
                       <button
                         type="button"
-                        onClick={() => { setAudioBlob(null); setAudioUrl(null); setRecordingState("idle"); }}
+                        onClick={resetRecording}
                         className="mt-2 text-xs text-slate-400 hover:text-slate-600"
                       >
                         Re-record

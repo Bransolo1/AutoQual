@@ -159,6 +159,13 @@ export class StudiesService {
     return { studyId, segments: counts };
   }
 
+  async updateScreeningLogic(studyId: string, screeningLogic: Record<string, unknown>) {
+    return this.prisma.study.update({
+      where: { id: studyId },
+      data: { screeningLogic: screeningLogic as Prisma.InputJsonValue },
+    });
+  }
+
   async updateLocalizationChecklist(studyId: string, checklist: Record<string, boolean>) {
     return this.prisma.study.update({
       where: { id: studyId },

@@ -91,7 +91,7 @@ export class EmbedService {
 
   async createSession(
     studyId: string,
-    input: { email: string; locale?: string; source?: string; segment?: string; consented?: boolean }
+    input: { email: string; locale?: string; source?: string; segment?: string; consented?: boolean; screened?: boolean }
   ) {
     const participant = await this.prisma.participant.create({
       data: {
@@ -102,15 +102,16 @@ export class EmbedService {
         segment: input.segment ?? null,
       },
     });
+    const status = input.screened ? "screened_out" : "in_progress";
     const session = await this.prisma.session.create({
       data: {
         studyId,
         participantId: participant.id,
-        status: "in_progress",
+        status,
         consented: input.consented ?? false,
       },
     });
-    return { participantId: participant.id, sessionId: session.id };
+    return { participantId: participant.id, sessionId: session.id, screened: input.screened ?? false };
   }
 
   async recordTurn(input: { sessionId: string; speaker: string; content: string }) {
@@ -136,18 +137,30 @@ export class EmbedService {
     const { studyId } = this.verifyToken(token);
     const study = await this.prisma.study.findUnique({
       where: { id: studyId },
-      select: { id: true, name: true, mode: true, language: true, interviewGuide: true },
+      select: { id: true, name: true, mode: true, language: true, interviewGuide: true, screeningLogic: true },
     });
     if (!study) throw new UnauthorizedException("Study not found");
 
-    type GuideQuestion = { id?: string; prompt: string; type?: string; followUp?: string };
-    const guide = study.interviewGuide as GuideQuestion[] | null;
-    const questions = (Array.isArray(guide) ? guide : []).map((q, i) => ({
+    // Parse interview guide questions — support both flat array and sections format
+    type RawQ = { id?: string; text?: string; prompt?: string; type?: string; probe?: string; followUp?: string };
+    type RawGuide = { questions?: RawQ[]; sections?: Array<{ questions?: RawQ[] }> };
+    const guide = study.interviewGuide as RawGuide | null;
+    const rawQuestions: RawQ[] =
+      guide && Array.isArray(guide.sections) && guide.sections.length > 0
+        ? guide.sections.flatMap((s) => s.questions ?? [])
+        : (guide?.questions ?? []);
+
+    const questions = rawQuestions.map((q, i) => ({
       id: q.id ?? `q${i}`,
-      prompt: q.prompt ?? "",
+      prompt: q.text ?? q.prompt ?? "",
       type: q.type ?? "text",
-      followUp: q.followUp ?? null,
+      followUp: q.followUp ?? q.probe ?? null,
     }));
+
+    // Expose screening questions for participant screening step
+    type ScreenQ = { id: string; label: string; type: string; options?: string[] };
+    type RawScreening = { screeningQuestions?: ScreenQ[]; screenOutRules?: unknown[] };
+    const screening = study.screeningLogic as RawScreening | null;
 
     return {
       studyId: study.id,
@@ -156,6 +169,9 @@ export class EmbedService {
       language: study.language,
       estimatedMinutes: Math.max(5, Math.ceil(questions.length * 2)),
       questions,
+      screeningLogic: screening
+        ? { screeningQuestions: screening.screeningQuestions ?? [], screenOutRules: screening.screenOutRules ?? [] }
+        : null,
     };
   }
 

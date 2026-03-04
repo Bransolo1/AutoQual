@@ -12,7 +12,28 @@ export class SessionsService {
   ) {}
 
   async list(studyId: string) {
-    return this.prisma.session.findMany({ where: { studyId } });
+    const sessions = await this.prisma.session.findMany({
+      where: { studyId },
+      include: {
+        participant: { select: { email: true, segment: true } },
+        _count: { select: { turns: true } },
+      },
+      orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+    });
+    return sessions.map((s) => ({
+      ...s,
+      participantEmail: s.participant?.email ?? null,
+      segment: s.participant?.segment ?? null,
+      turnCount: s._count.turns,
+    }));
+  }
+
+  async listTurns(sessionId: string) {
+    return this.prisma.turn.findMany({
+      where: { sessionId },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, speaker: true, content: true, createdAt: true },
+    });
   }
 
   async getById(sessionId: string) {

@@ -16,6 +16,11 @@ export class SessionsController {
     return this.sessionsService.getById(id);
   }
 
+  @Get(":id/turns")
+  listTurns(@Param("id") id: string) {
+    return this.sessionsService.listTurns(id);
+  }
+
   @Post()
   create(@Body() input: CreateSessionInput) {
     return this.sessionsService.create(input);

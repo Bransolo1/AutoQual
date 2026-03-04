@@ -29,6 +29,21 @@ type ModeratorConfig = {
   maxProbesPerQuestion: number;
 };
 
+// L3 — Recruitment builder types
+type ScreeningRule = { id: string; field: string; operator: string; value: string; action: "screen_in" | "screen_out" };
+type QuotaRow = { id: string; segment: string; target: number };
+
+// L4 — Session monitoring types
+type SessionRow = {
+  id: string;
+  participantEmail: string | null;
+  segment: string | null;
+  status: string;
+  createdAt: string;
+  turnCount: number;
+};
+type TurnRow = { id: string; speaker: string; content: string; createdAt: string };
+
 type WizardState = {
   projectId: string;
   studyId: string;
@@ -44,11 +59,12 @@ type WizardState = {
   guideSections: GuideSection[];
   guideStopConditions: StopConditions;
   guideModeratorConfig: ModeratorConfig;
-  // Recruitment (still JSON for now)
-  screeningJson: string;
-  quotasJson: string;
-  recruitmentChecklistJson: string;
-  localizationChecklistJson: string;
+  // Recruitment — structured visual editors (L3)
+  screeningRequiredFields: string;
+  screeningRules: ScreeningRule[];
+  quotaRows: QuotaRow[];
+  recruitmentChecklist: { screeningReady: boolean; incentivesApproved: boolean };
+  localizationChecklist: { translationsComplete: boolean; qaDone: boolean };
   // Activation (still JSON)
   activationChecklistJson: string;
   rolloutPlanJson: string;
@@ -79,10 +95,11 @@ const defaultState: WizardState = {
   guideSections: [],
   guideStopConditions: DEFAULT_STOP,
   guideModeratorConfig: DEFAULT_MOD_CONFIG,
-  screeningJson: '{"requiredFields":["market","role"],"screenOutRules":[]}',
-  quotasJson: '{\n  "segment-a": 10,\n  "segment-b": 10\n}',
-  recruitmentChecklistJson: '{\n  "screeningReady": false,\n  "incentivesApproved": false\n}',
-  localizationChecklistJson: '{\n  "translationsComplete": false,\n  "qaDone": false\n}',
+  screeningRequiredFields: "market, role",
+  screeningRules: [],
+  quotaRows: [],
+  recruitmentChecklist: { screeningReady: false, incentivesApproved: false },
+  localizationChecklist: { translationsComplete: false, qaDone: false },
   activationChecklistJson: '{\n  "storyTemplateReady": false,\n  "stakeholderListReady": false\n}',
   rolloutPlanJson: '{\n  "markets": ["US"],\n  "status": "planned"\n}',
   distributionTrackingJson: '{\n  "channels": ["email"],\n  "measurement": "utm"\n}',
@@ -452,6 +469,10 @@ export default function StudiesWizardPage() {
   const [quotaStatus, setQuotaStatus] = useState<
     Array<{ segment: string; target: number; actual: number; remaining: number }>
   >([]);
+  // L4 — session monitoring
+  const [sessions, setSessions] = useState<SessionRow[]>([]);
+  const [expandedSession, setExpandedSession] = useState<string | null>(null);
+  const [sessionTurns, setSessionTurns] = useState<Record<string, TurnRow[]>>({});
 
   // Hydrate workspaceId from auth on first load
   useEffect(() => {
@@ -573,30 +594,44 @@ export default function StudiesWizardPage() {
 
   const saveRecruitment = async () => {
     if (!wizard.studyId) { setStatus("Select a study first."); return; }
-    const quotas = safeJsonParse(wizard.quotasJson);
-    const screening = safeJsonParse(wizard.screeningJson);
-    const recruitmentChecklist = safeJsonParse(wizard.recruitmentChecklistJson);
-    const localizationChecklist = safeJsonParse(wizard.localizationChecklistJson);
-    if (!quotas || !screening || !recruitmentChecklist || !localizationChecklist) {
-      setStatus("All JSON fields must be valid.");
-      return;
-    }
+
+    // Serialize structured state to API shape
+    const requiredFields = wizard.screeningRequiredFields
+      .split(",").map((f) => f.trim()).filter(Boolean);
+    const screeningLogic = {
+      requiredFields,
+      screenOutRules: wizard.screeningRules.map((r) => ({
+        field: r.field,
+        operator: r.operator,
+        value: r.value,
+        condition: r.action,
+      })),
+    };
+    const quotaTargets = Object.fromEntries(
+      wizard.quotaRows.filter((r) => r.segment.trim()).map((r) => [r.segment.trim(), r.target])
+    );
+
     setStatus("Saving recruitment settings...");
     await Promise.all([
+      apiFetch(`/studies/${wizard.studyId}/screening`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(screeningLogic),
+      }),
       apiFetch(`/studies/${wizard.studyId}/quotas`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quotaTargets: quotas }),
+        body: JSON.stringify({ quotaTargets }),
       }),
       apiFetch(`/studies/${wizard.studyId}/recruitment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ checklist: recruitmentChecklist }),
+        body: JSON.stringify({ checklist: wizard.recruitmentChecklist }),
       }),
       apiFetch(`/studies/${wizard.studyId}/localization`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ checklist: localizationChecklist }),
+        body: JSON.stringify({ checklist: wizard.localizationChecklist }),
       }),
     ]);
     setStatus("Recruitment settings saved.");
@@ -633,9 +668,10 @@ export default function StudiesWizardPage() {
 
   const refreshRunMetrics = async () => {
     if (!wizard.studyId) return;
-    const [segmentsRes, quotaRes] = await Promise.all([
+    const [segmentsRes, quotaRes, sessionsRes] = await Promise.all([
       apiFetch(`/studies/${wizard.studyId}/segment-summary`),
       apiFetch(`/studies/${wizard.studyId}/quota-status`),
+      apiFetch(`/sessions?studyId=${wizard.studyId}&limit=50`),
     ]);
     if (segmentsRes.ok) {
       const payload = await segmentsRes.json();
@@ -645,7 +681,29 @@ export default function StudiesWizardPage() {
       const payload = await quotaRes.json();
       setQuotaStatus(payload.status ?? []);
     }
+    if (sessionsRes.ok) {
+      const payload = await sessionsRes.json();
+      setSessions(Array.isArray(payload) ? payload : []);
+    }
   };
+
+  async function loadSessionTurns(sessionId: string) {
+    if (sessionTurns[sessionId]) return; // already loaded
+    const res = await apiFetch(`/sessions/${sessionId}/turns`);
+    if (res.ok) {
+      const turns = await res.json();
+      setSessionTurns((prev) => ({ ...prev, [sessionId]: turns }));
+    }
+  }
+
+  // L4 — auto-refresh every 30s while on Step 4
+  React.useEffect(() => {
+    if (step !== 4 || !wizard.studyId) return;
+    refreshRunMetrics();
+    const timer = setInterval(refreshRunMetrics, 30_000);
+    return () => clearInterval(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, wizard.studyId]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -854,43 +912,186 @@ export default function StudiesWizardPage() {
 
         {/* ── Step 3: Recruitment ───────────────────────────────────────── */}
         {step === 3 && (
-          <div className="mt-4 grid gap-3">
-            <label className="text-sm text-gray-600">
-              Screening logic (JSON)
-              <textarea
-                className="mt-1 w-full rounded-lg border border-gray-200 p-2 font-mono text-xs"
-                rows={6}
-                value={wizard.screeningJson}
-                onChange={(e) => setWizard((prev) => ({ ...prev, screeningJson: e.target.value }))}
-              />
-            </label>
-            <label className="text-sm text-gray-600">
-              Quota targets (JSON)
-              <textarea
-                className="mt-1 w-full rounded-lg border border-gray-200 p-2 font-mono text-xs"
-                rows={5}
-                value={wizard.quotasJson}
-                onChange={(e) => setWizard((prev) => ({ ...prev, quotasJson: e.target.value }))}
-              />
-            </label>
-            <label className="text-sm text-gray-600">
-              Recruitment checklist (JSON)
-              <textarea
-                className="mt-1 w-full rounded-lg border border-gray-200 p-2 font-mono text-xs"
-                rows={4}
-                value={wizard.recruitmentChecklistJson}
-                onChange={(e) => setWizard((prev) => ({ ...prev, recruitmentChecklistJson: e.target.value }))}
-              />
-            </label>
-            <label className="text-sm text-gray-600">
-              Localization checklist (JSON)
-              <textarea
-                className="mt-1 w-full rounded-lg border border-gray-200 p-2 font-mono text-xs"
-                rows={4}
-                value={wizard.localizationChecklistJson}
-                onChange={(e) => setWizard((prev) => ({ ...prev, localizationChecklistJson: e.target.value }))}
-              />
-            </label>
+          <div className="mt-4 grid gap-5">
+            {/* Screening rules */}
+            <div>
+              <p className="text-sm font-medium text-gray-700">Screening rules</p>
+              <div className="mt-2">
+                <label className="text-xs text-gray-500">Required fields (comma-separated)</label>
+                <input
+                  type="text"
+                  value={wizard.screeningRequiredFields}
+                  onChange={(e) => setWizard((prev) => ({ ...prev, screeningRequiredFields: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
+                  placeholder="market, role, age"
+                />
+              </div>
+              <div className="mt-3 space-y-2">
+                {wizard.screeningRules.map((rule, i) => (
+                  <div key={rule.id} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={rule.field}
+                      onChange={(e) => setWizard((prev) => ({
+                        ...prev,
+                        screeningRules: prev.screeningRules.map((r, j) => j === i ? { ...r, field: e.target.value } : r),
+                      }))}
+                      placeholder="field"
+                      className="w-24 rounded border border-gray-200 px-2 py-1 text-xs focus:border-blue-400 focus:outline-none"
+                    />
+                    <select
+                      value={rule.operator}
+                      onChange={(e) => setWizard((prev) => ({
+                        ...prev,
+                        screeningRules: prev.screeningRules.map((r, j) => j === i ? { ...r, operator: e.target.value } : r),
+                      }))}
+                      className="rounded border border-gray-200 px-2 py-1 text-xs focus:border-blue-400 focus:outline-none"
+                    >
+                      <option value="equals">equals</option>
+                      <option value="not_equals">not equals</option>
+                      <option value="contains">contains</option>
+                      <option value="is_empty">is empty</option>
+                    </select>
+                    <input
+                      type="text"
+                      value={rule.value}
+                      onChange={(e) => setWizard((prev) => ({
+                        ...prev,
+                        screeningRules: prev.screeningRules.map((r, j) => j === i ? { ...r, value: e.target.value } : r),
+                      }))}
+                      placeholder="value"
+                      className="w-24 rounded border border-gray-200 px-2 py-1 text-xs focus:border-blue-400 focus:outline-none"
+                    />
+                    <select
+                      value={rule.action}
+                      onChange={(e) => setWizard((prev) => ({
+                        ...prev,
+                        screeningRules: prev.screeningRules.map((r, j) => j === i ? { ...r, action: e.target.value as "screen_in" | "screen_out" } : r),
+                      }))}
+                      className="rounded border border-gray-200 px-2 py-1 text-xs focus:border-blue-400 focus:outline-none"
+                    >
+                      <option value="screen_out">screen out</option>
+                      <option value="screen_in">screen in</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setWizard((prev) => ({ ...prev, screeningRules: prev.screeningRules.filter((_, j) => j !== i) }))}
+                      className="text-gray-300 hover:text-red-400 text-sm leading-none"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setWizard((prev) => ({
+                  ...prev,
+                  screeningRules: [...prev.screeningRules, { id: crypto.randomUUID(), field: "", operator: "equals", value: "", action: "screen_out" }],
+                }))}
+                className="mt-2 rounded border border-dashed border-gray-300 px-3 py-1 text-xs text-gray-500 hover:border-blue-400 hover:text-blue-600"
+              >
+                + Add rule
+              </button>
+            </div>
+
+            {/* Quota targets */}
+            <div>
+              <p className="text-sm font-medium text-gray-700">Quota targets</p>
+              <div className="mt-2 space-y-2">
+                {wizard.quotaRows.map((row, i) => (
+                  <div key={row.id} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={row.segment}
+                      onChange={(e) => setWizard((prev) => ({
+                        ...prev,
+                        quotaRows: prev.quotaRows.map((r, j) => j === i ? { ...r, segment: e.target.value } : r),
+                      }))}
+                      placeholder="segment name"
+                      className="flex-1 rounded border border-gray-200 px-2 py-1 text-xs focus:border-blue-400 focus:outline-none"
+                    />
+                    <input
+                      type="number"
+                      min={1}
+                      value={row.target}
+                      onChange={(e) => setWizard((prev) => ({
+                        ...prev,
+                        quotaRows: prev.quotaRows.map((r, j) => j === i ? { ...r, target: Number(e.target.value) } : r),
+                      }))}
+                      className="w-16 rounded border border-gray-200 px-2 py-1 text-xs focus:border-blue-400 focus:outline-none"
+                    />
+                    <span className="text-xs text-gray-400">participants</span>
+                    <button
+                      type="button"
+                      onClick={() => setWizard((prev) => ({ ...prev, quotaRows: prev.quotaRows.filter((_, j) => j !== i) }))}
+                      className="text-gray-300 hover:text-red-400 text-sm leading-none"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setWizard((prev) => ({
+                  ...prev,
+                  quotaRows: [...prev.quotaRows, { id: crypto.randomUUID(), segment: "", target: 10 }],
+                }))}
+                className="mt-2 rounded border border-dashed border-gray-300 px-3 py-1 text-xs text-gray-500 hover:border-blue-400 hover:text-blue-600"
+              >
+                + Add segment
+              </button>
+            </div>
+
+            {/* Recruitment checklist */}
+            <div>
+              <p className="text-sm font-medium text-gray-700">Recruitment checklist</p>
+              <div className="mt-2 space-y-2">
+                {([
+                  { key: "screeningReady", label: "Screening logic reviewed and approved" },
+                  { key: "incentivesApproved", label: "Participant incentives approved" },
+                ] as const).map(({ key, label }) => (
+                  <label key={key} className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={wizard.recruitmentChecklist[key]}
+                      onChange={(e) => setWizard((prev) => ({
+                        ...prev,
+                        recruitmentChecklist: { ...prev.recruitmentChecklist, [key]: e.target.checked },
+                      }))}
+                      className="h-4 w-4 accent-blue-600"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Localization checklist */}
+            <div>
+              <p className="text-sm font-medium text-gray-700">Localization checklist</p>
+              <div className="mt-2 space-y-2">
+                {([
+                  { key: "translationsComplete", label: "Translations complete" },
+                  { key: "qaDone", label: "Localization QA done" },
+                ] as const).map(({ key, label }) => (
+                  <label key={key} className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={wizard.localizationChecklist[key]}
+                      onChange={(e) => setWizard((prev) => ({
+                        ...prev,
+                        localizationChecklist: { ...prev.localizationChecklist, [key]: e.target.checked },
+                      }))}
+                      className="h-4 w-4 accent-blue-600"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
             <button type="button" onClick={saveRecruitment}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
               Save recruitment setup
@@ -902,38 +1103,118 @@ export default function StudiesWizardPage() {
         {/* ── Step 4: Run ───────────────────────────────────────────────── */}
         {step === 4 && (
           <div className="mt-4 grid gap-4">
-            <div className="rounded-xl border border-gray-100 p-4">
-              <div className="text-xs uppercase text-gray-500">Session monitoring</div>
-              <p className="mt-2 text-xs text-gray-500">
-                Track quotas and participant distribution while interviews are running.
-              </p>
-              <button type="button" onClick={refreshRunMetrics}
-                className="mt-3 rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-600">
-                Refresh metrics
-              </button>
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
-                <div className="rounded-lg border border-gray-100 p-3 text-xs text-gray-500">
-                  <div className="text-xs uppercase text-gray-400">Segments</div>
-                  {segmentSummary
-                    ? Object.entries(segmentSummary).map(([seg, count]) => (
-                        <div key={seg} className="mt-1">{seg}: {count}</div>
-                      ))
-                    : <p className="mt-2">No segment data yet.</p>
-                  }
+            {/* Quota progress bars */}
+            {quotaStatus.length > 0 && (
+              <div className="rounded-xl border border-gray-100 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-xs font-medium uppercase text-gray-500">Quota progress</span>
+                  <button type="button" onClick={refreshRunMetrics}
+                    className="rounded-full border border-gray-200 px-3 py-0.5 text-xs text-gray-500 hover:bg-gray-50">
+                    Refresh
+                  </button>
                 </div>
-                <div className="rounded-lg border border-gray-100 p-3 text-xs text-gray-500">
-                  <div className="text-xs uppercase text-gray-400">Quota status</div>
-                  {quotaStatus.length
-                    ? quotaStatus.map((q) => (
-                        <div key={q.segment} className="mt-1">
-                          {q.segment}: {q.actual}/{q.target} (remaining {q.remaining})
+                <div className="space-y-3">
+                  {quotaStatus.map((q) => {
+                    const pct = q.target > 0 ? Math.min(100, Math.round((q.actual / q.target) * 100)) : 0;
+                    return (
+                      <div key={q.segment}>
+                        <div className="mb-1 flex justify-between text-xs text-gray-600">
+                          <span>{q.segment}</span>
+                          <span>{q.actual} / {q.target}</span>
                         </div>
-                      ))
-                    : <p className="mt-2">No quota status yet.</p>
-                  }
+                        <div className="h-2 w-full rounded-full bg-gray-100">
+                          <div
+                            className={`h-full rounded-full transition-all ${pct >= 100 ? "bg-green-500" : "bg-blue-500"}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
+            )}
+
+            {/* Live session list */}
+            <div className="rounded-xl border border-gray-100 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-xs font-medium uppercase text-gray-500">
+                  Live sessions {sessions.length > 0 && `(${sessions.length})`}
+                </span>
+                {quotaStatus.length === 0 && (
+                  <button type="button" onClick={refreshRunMetrics}
+                    className="rounded-full border border-gray-200 px-3 py-0.5 text-xs text-gray-500 hover:bg-gray-50">
+                    Refresh
+                  </button>
+                )}
+              </div>
+              {sessions.length === 0 ? (
+                <p className="text-xs text-gray-400">No sessions yet. Share a participant link to get started.</p>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {sessions
+                    .slice()
+                    .sort((a, b) => {
+                      const order = { in_progress: 0, completed: 1, screened_out: 2, abandoned: 3 };
+                      const ao = order[a.status as keyof typeof order] ?? 9;
+                      const bo = order[b.status as keyof typeof order] ?? 9;
+                      return ao !== bo ? ao - bo : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                    })
+                    .map((s) => {
+                      const statusColors: Record<string, string> = {
+                        in_progress: "bg-blue-100 text-blue-700",
+                        completed: "bg-green-100 text-green-700",
+                        abandoned: "bg-red-100 text-red-700",
+                        screened_out: "bg-amber-100 text-amber-700",
+                      };
+                      const elapsed = Math.round((Date.now() - new Date(s.createdAt).getTime()) / 60000);
+                      const isExpanded = expandedSession === s.id;
+                      return (
+                        <div key={s.id}>
+                          <button
+                            type="button"
+                            className="w-full py-2 text-left"
+                            onClick={() => {
+                              setExpandedSession(isExpanded ? null : s.id);
+                              if (!isExpanded) loadSessionTurns(s.id);
+                            }}
+                          >
+                            <div className="flex items-center gap-3 text-xs">
+                              <span className="flex-1 truncate text-gray-700">
+                                {s.participantEmail ?? "Anonymous"}
+                              </span>
+                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColors[s.status] ?? "bg-gray-100 text-gray-600"}`}>
+                                {s.status.replace("_", " ")}
+                              </span>
+                              <span className="w-10 text-right text-gray-400">{s.turnCount}t</span>
+                              <span className="w-16 text-right text-gray-400">{elapsed}m ago</span>
+                              <span className="text-gray-300">{isExpanded ? "▲" : "▼"}</span>
+                            </div>
+                          </button>
+                          {isExpanded && (
+                            <div className="mb-2 ml-2 space-y-1 rounded-lg bg-gray-50 p-3">
+                              {sessionTurns[s.id]
+                                ? sessionTurns[s.id].length === 0
+                                  ? <p className="text-xs text-gray-400">No turns recorded.</p>
+                                  : sessionTurns[s.id].map((t) => (
+                                      <div key={t.id} className="text-xs">
+                                        <span className={`font-medium ${t.speaker === "participant" ? "text-blue-600" : "text-gray-500"}`}>
+                                          {t.speaker}:
+                                        </span>{" "}
+                                        <span className="text-gray-700">{t.content}</span>
+                                      </div>
+                                    ))
+                                : <p className="text-xs text-gray-400">Loading…</p>
+                              }
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
             </div>
+
             <div className="rounded-xl border border-gray-100 p-4 text-xs text-gray-500">
               Use Fieldwork to generate and share participant links.{" "}
               <a href="/fieldwork" className="text-blue-600 underline">Open Fieldwork →</a>

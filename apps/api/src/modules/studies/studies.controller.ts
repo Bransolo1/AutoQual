@@ -31,6 +31,14 @@ export class StudiesController {
     return this.studiesService.buildFromBrief(id, brief ?? "");
   }
 
+  @Post(":id/screening")
+  updateScreening(
+    @Param("id") id: string,
+    @Body() body: { screeningLogic: Record<string, unknown> },
+  ) {
+    return this.studiesService.updateScreeningLogic(id, body.screeningLogic ?? {});
+  }
+
   @Post(":id/guide")
   updateGuide(
     @Param("id") id: string,
