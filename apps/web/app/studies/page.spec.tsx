@@ -16,15 +16,10 @@ describe("StudiesPage", () => {
     );
   });
 
-  it("renders analysis quality guidance", () => {
+  it("renders study wizard with prompt framework", () => {
     render(<StudiesPage />);
 
-    expect(screen.getByText("Studies")).toBeInTheDocument();
-    expect(screen.getByText("Analysis quality")).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Evidence gaps will block insight set approvals until clips or transcript spans are attached.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Study wizard")).toBeInTheDocument();
+    expect(screen.getByText("Create study")).toBeInTheDocument();
   });
 });
