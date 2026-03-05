@@ -3,9 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { TaskDrawer } from "../../../components/TaskDrawer";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
+import { API_BASE, HEADERS } from "@/lib/api";
 
 const columns = [
   { id: "todo", title: "To Do" },

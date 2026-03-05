@@ -122,7 +122,7 @@ export class SessionsService {
         linkedEntityType: "insight_set",
         linkedEntityId: studyId,
         status: "requested",
-        requestedByUserId: session.participantId,
+        requestedByUserId: "system",
       },
     });
     await this.prisma.auditEvent.create({

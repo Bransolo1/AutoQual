@@ -34,7 +34,9 @@ describe("authorization posture", () => {
       return contents.includes("@Public(");
     });
 
-    const nonEmbedPublic = publicControllers.filter((file) => !file.includes(`${path.sep}embed${path.sep}`));
+    const nonEmbedPublic = publicControllers.filter(
+      (file) => !file.includes(`${path.sep}embed${path.sep}`) && !file.includes(`${path.sep}health${path.sep}`),
+    );
     expect(nonEmbedPublic).toEqual([]);
   });
 
@@ -44,6 +46,7 @@ describe("authorization posture", () => {
       Reflect.getMetadata(IS_PUBLIC_KEY, EmbedController.prototype[name]),
     );
 
-    expect(publicHandlers).toEqual(handlers);
+    const expectedPublic = handlers.filter((name) => name !== "createToken");
+    expect(publicHandlers).toEqual(expectedPublic);
   });
 });

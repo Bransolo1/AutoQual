@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+import { API_BASE, HEADERS as BASE_HEADERS } from "@/lib/api";
 
 type InsightVersion = {
   id: string;
@@ -47,7 +46,7 @@ export default function InsightDetailPage() {
   const [reviewerId, setReviewerId] = useState("");
   const [comment, setComment] = useState("");
   const role = searchParams?.get("role") ?? "researcher";
-  const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user", "x-role": role };
+  const HEADERS = { ...BASE_HEADERS, "x-role": role };
 
   useEffect(() => {
     if (!id) return;

@@ -3,9 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
+import { API_BASE, HEADERS } from "@/lib/api";
 
 type Project = {
   id: string;
@@ -107,7 +105,7 @@ export default function ProjectsPage() {
     <main className="min-h-screen px-8 py-10">
       <h1 className="text-2xl font-semibold">Projects</h1>
       <p className="mt-2 text-sm text-gray-600">
-        Track studies, milestones, and approvals in one delivery pipeline.
+        Organize your qualitative research studies, track progress, and manage approvals.
       </p>
       <div className="mt-4 flex flex-wrap gap-3 rounded-2xl bg-white p-4 shadow-sm">
         <input

@@ -32,14 +32,14 @@ export class EmbedController {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Sensehub Interview</title>
+    <title>OpenQual Interview</title>
   </head>
   <body style="margin:0;font-family:Inter,system-ui,sans-serif;background:#f8f6f3;">
     <div style="padding:24px;">
-      <h2 style="margin:0 0 8px;">Sensehub Interview</h2>
+      <h2 style="margin:0 0 8px;">OpenQual Interview</h2>
       <p style="margin:0 0 12px;color:#475569;">Study: ${payload.studyId}</p>
       <iframe
-        title="Sensehub Participant"
+        title="OpenQual Participant"
         src="${webBaseUrl}/participant?token=${token}&studyId=${payload.studyId}"
         style="width:100%;height:640px;border:1px solid #e2e8f0;border-radius:16px;background:white;"
       ></iframe>
@@ -49,7 +49,7 @@ export class EmbedController {
     </div>
     <script>
       window.addEventListener("message", (event) => {
-        if (event && event.data && event.data.type === "sensehub.embed.completed") {
+        if (event && event.data && event.data.type === "openqual.embed.completed") {
           const el = document.getElementById("embed-status");
           if (el) el.textContent = "Completion received. Thank you!";
         }

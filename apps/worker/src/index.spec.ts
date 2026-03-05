@@ -22,6 +22,12 @@ describe("worker pipeline", () => {
       if (String(input).includes("/workspaces/demo-workspace-id")) {
         return new Response(JSON.stringify({ retentionDays: 180 }), { status: 200 });
       }
+      if (String(input).includes("/media/artifacts") && String(input).includes("signed-url")) {
+        return new Response(JSON.stringify({ url: "https://storage.example.com/signed" }), { status: 200 });
+      }
+      if (String(input).includes("/media/artifacts")) {
+        return new Response(JSON.stringify([{ id: "artifact-1", storageKey: "recordings/session-1.webm" }]), { status: 200 });
+      }
       if (String(input).includes("/transcripts/tx-1") && init?.method !== "PATCH") {
         return new Response(JSON.stringify({ id: "tx-1", content: "email me at test@example.com", sessionId: "session-1" }), {
           status: 200,

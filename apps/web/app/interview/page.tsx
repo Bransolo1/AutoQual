@@ -1,19 +1,37 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { VideoPlayer } from "../../components/VideoPlayer";
+import { API_BASE, HEADERS } from "@/lib/api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" };
+const QUESTION_LABELS = [
+  "Tell us about yourself and your role.",
+  "What problems or frustrations do you face?",
+  "How do you currently solve these problems?",
+  "What would an ideal solution look like?",
+  "Is there anything else you'd like to share?",
+];
 
 export default function InterviewPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-sm text-gray-400">Loading interview...</div>}>
+      <InterviewContent />
+    </Suspense>
+  );
+}
+
+function InterviewContent() {
   const searchParams = useSearchParams();
   const embedToken = useMemo(() => searchParams.get("token"), [searchParams]);
   const previewRef = useRef<HTMLVideoElement | null>(null);
   const [recording, setRecording] = useState(false);
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
   const [captureMode, setCaptureMode] = useState<"video" | "audio">("video");
+  const [interviewMode, setInterviewMode] = useState<"ai-moderated" | "record" | "live">("ai-moderated");
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [totalQuestions] = useState(5);
+  const questionLabels = QUESTION_LABELS;
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [deviceReady, setDeviceReady] = useState(false);
   const [deviceStatus, setDeviceStatus] = useState<string | null>(null);
@@ -41,9 +59,22 @@ export default function InterviewPage() {
   const chunksRef = useRef<Blob[]>([]);
   const lastBlobRef = useRef<Blob | null>(null);
 
+  // --- Participant mode state ---
+  const participantMode = !!embedToken;
+  const [messages, setMessages] = useState<{ role: "ai" | "user"; content: string }[]>([]);
+  const [isListening, setIsListening] = useState(false);
+  const [transcript, setTranscript] = useState("");
+  const [textInput, setTextInput] = useState("");
+  const [interviewComplete, setInterviewComplete] = useState(false);
+  const [typingText, setTypingText] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem("sensehub.embed.session");
+    const stored = window.localStorage.getItem("openqual.embed.session");
     if (stored) {
       try {
         const parsed = JSON.parse(stored) as { participantId: string; sessionId: string };
@@ -54,14 +85,36 @@ export default function InterviewPage() {
     }
   }, []);
 
+  const startedAtRef = useRef(0);
+
   useEffect(() => {
-    if (!recording) return;
-    const startedAt = Date.now() - elapsedSeconds * 1000;
+    if (!recording) {
+      startedAtRef.current = 0;
+      return;
+    }
+    startedAtRef.current = Date.now();
     const timer = window.setInterval(() => {
-      setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+      setElapsedSeconds(Math.floor((Date.now() - startedAtRef.current) / 1000));
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [recording, elapsedSeconds]);
+  }, [recording]);
+
+  // Auto-scroll chat to bottom when messages change
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isListening, typingText, isWaitingForResponse]);
+
+  // Compute displayable messages, always including the first AI question for participant mode
+  const displayMessages = useMemo(() => {
+    if (!participantMode) return messages;
+    const firstQuestion: { role: "ai" | "user"; content: string } = {
+      role: "ai",
+      content: QUESTION_LABELS[0] || "Welcome! Tell me about yourself and your role.",
+    };
+    if (messages.length === 0) return [firstQuestion];
+    if (messages[0]?.role === "ai" && messages[0]?.content === firstQuestion.content) return messages;
+    return [firstQuestion, ...messages];
+  }, [participantMode, messages]);
 
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -281,8 +334,9 @@ export default function InterviewPage() {
   };
 
   const prefetchPrompts = async () => {
+    const sessionId = sessionInfo?.sessionId || "demo-session";
     setPromptStatus("Prefetching...");
-    const res = await fetch(`${API_BASE}/moderator/demo-session/prefetch?count=3`, {
+    const res = await fetch(`${API_BASE}/moderator/${sessionId}/prefetch?count=3`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...HEADERS },
     });
@@ -296,8 +350,9 @@ export default function InterviewPage() {
   };
 
   const getNextPrompt = async () => {
+    const sessionId = sessionInfo?.sessionId || "demo-session";
     setPromptStatus("Getting next prompt...");
-    const res = await fetch(`${API_BASE}/moderator/demo-session/next-turn`, {
+    const res = await fetch(`${API_BASE}/moderator/${sessionId}/next-turn`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...HEADERS },
       body: JSON.stringify({
@@ -323,6 +378,7 @@ export default function InterviewPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        sessionId: sessionInfo?.sessionId,
         metadata: {
           recorded: Boolean(recordedUrl),
           uploaded: uploadStatus === "done" || multipartStatus === "done",
@@ -335,7 +391,7 @@ export default function InterviewPage() {
     if (success && typeof window !== "undefined") {
       window.parent?.postMessage(
         {
-          type: "sensehub.embed.completed",
+          type: "openqual.embed.completed",
           studyId: searchParams.get("studyId") ?? null,
           token: embedToken,
         },
@@ -363,7 +419,7 @@ export default function InterviewPage() {
     const nextSession = { participantId: data.participantId, sessionId: data.sessionId };
     setSessionInfo(nextSession);
     if (typeof window !== "undefined") {
-      window.localStorage.setItem("sensehub.embed.session", JSON.stringify(nextSession));
+      window.localStorage.setItem("openqual.embed.session", JSON.stringify(nextSession));
     }
     setSessionStatus("Session ready.");
   };
@@ -407,12 +463,240 @@ export default function InterviewPage() {
     setTranscriptStatus(transcriptRes.ok ? "Transcript saved." : "Unable to save transcript.");
   };
 
+  // --- Participant mode: speech recognition ---
+  const startListening = () => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setTranscript("Speech recognition not supported in this browser.");
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    recognition.onresult = (event: any) => {
+      let finalTranscript = "";
+      let interimTranscript = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          finalTranscript += result[0].transcript;
+        } else {
+          interimTranscript += result[0].transcript;
+        }
+      }
+      setTranscript(finalTranscript || interimTranscript);
+      if (finalTranscript) {
+        setTextInput((prev) => (prev + " " + finalTranscript).trim());
+      }
+    };
+
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  };
+
+  const stopListening = () => {
+    recognitionRef.current?.stop();
+    setIsListening(false);
+  };
+
+  const toggleListening = () => {
+    if (isListening) stopListening();
+    else startListening();
+  };
+
+  const typeMessage = (text: string): Promise<void> => {
+    return new Promise((resolve) => {
+      setIsTyping(true);
+      let i = 0;
+      const interval = setInterval(() => {
+        i++;
+        setTypingText(text.slice(0, i));
+        if (i >= text.length) {
+          clearInterval(interval);
+          setIsTyping(false);
+          setTypingText('');
+          resolve();
+        }
+      }, 25);
+    });
+  };
+
+  const sendResponse = async () => {
+    const text = textInput.trim();
+    if (!text || interviewComplete) return;
+
+    setMessages((prev) => [...prev, { role: "user", content: text }]);
+    setTextInput("");
+    setTranscript("");
+
+    if (currentQuestionIndex >= totalQuestions - 1) {
+      const completionMessage =
+        "Thank you so much for sharing your thoughts! Your responses have been recorded. This interview is now complete.";
+      setIsWaitingForResponse(true);
+      await new Promise((r) => setTimeout(r, 800));
+      setIsWaitingForResponse(false);
+      await typeMessage(completionMessage);
+      setMessages((prev) => [...prev, { role: "ai", content: completionMessage }]);
+      setInterviewComplete(true);
+      return;
+    }
+
+    setIsWaitingForResponse(true);
+    const sessionId = sessionInfo?.sessionId || "demo-session";
+    let aiMessage: string;
+    try {
+      const res = await fetch(`${API_BASE}/moderator/${sessionId}/next-turn`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...HEADERS },
+        body: JSON.stringify({
+          lastUserMessage: text,
+          latencyMode: "fast",
+          prefetchCount: 2,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        aiMessage = data.prompt ?? data.fallbackPrompt ?? questionLabels[currentQuestionIndex + 1];
+      } else {
+        aiMessage = questionLabels[currentQuestionIndex + 1] || "Thank you. Please continue.";
+      }
+    } catch {
+      aiMessage = questionLabels[currentQuestionIndex + 1] || "Thank you. Please continue.";
+    }
+
+    setIsWaitingForResponse(false);
+    await typeMessage(aiMessage);
+    setMessages((prev) => [...prev, { role: "ai", content: aiMessage }]);
+    setCurrentQuestionIndex((prev) => Math.min(prev + 1, totalQuestions - 1));
+  };
+
+  // --- Participant mode UI ---
+  if (participantMode) {
+    return (
+      <main className="mx-auto max-w-2xl bg-white">
+        {/* Header */}
+        <div className="border-b bg-white px-6 py-4">
+          <h1 className="text-lg font-semibold text-slate-900">Research Interview</h1>
+          <p className="text-xs text-gray-500">
+            Question {currentQuestionIndex + 1} of {totalQuestions}
+          </p>
+          <div className="mt-2 h-1.5 rounded-full bg-gray-100">
+            <div
+              className="h-1.5 rounded-full bg-brand-500 transition-all duration-500"
+              style={{ width: `${((currentQuestionIndex + 1) / totalQuestions) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Chat messages area */}
+        <div className="min-h-[50vh] px-6 py-6 space-y-4">
+          {displayMessages.map((msg, i) => (
+            <div key={i} className={`flex ${msg.role === "ai" ? "justify-start" : "justify-end"}`}>
+              <div
+                className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                  msg.role === "ai"
+                    ? "rounded-bl-md bg-gray-100 text-gray-800"
+                    : "rounded-br-md bg-brand-500 text-white"
+                }`}
+              >
+                {msg.content}
+              </div>
+            </div>
+          ))}
+          {isWaitingForResponse && (
+            <div className="flex justify-start">
+              <div className="max-w-[80%] rounded-2xl px-4 py-3 text-sm bg-gray-100 text-gray-500 rounded-bl-md">
+                <span className="animate-pulse">● ● ●</span>
+              </div>
+            </div>
+          )}
+          {isTyping && (
+            <div className="flex justify-start">
+              <div className="max-w-[80%] rounded-2xl px-4 py-3 text-sm bg-gray-100 text-gray-800 rounded-bl-md">
+                {typingText}<span className="animate-pulse">|</span>
+              </div>
+            </div>
+          )}
+          {isListening && (
+            <div className="flex justify-end">
+              <div className="max-w-[80%] animate-pulse rounded-2xl rounded-br-md bg-brand-100 px-4 py-3 text-sm text-brand-700">
+                Listening...
+              </div>
+            </div>
+          )}
+          <div ref={chatEndRef} />
+        </div>
+
+        {/* Input area */}
+        {!interviewComplete ? (
+          <div className="border-t bg-white px-6 py-4">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={toggleListening}
+                disabled={isTyping || isWaitingForResponse}
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white transition-all ${
+                  isListening ? "animate-pulse bg-red-500" : "bg-brand-500 hover:bg-brand-600"
+                } disabled:opacity-40`}
+              >
+                🎤
+              </button>
+              <div className="flex-1">
+                <input
+                  value={textInput}
+                  onChange={(e) => setTextInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") sendResponse();
+                  }}
+                  placeholder="Type or speak your response..."
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => sendResponse()}
+                disabled={!textInput.trim() || isTyping || isWaitingForResponse}
+                className="rounded-xl bg-brand-500 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-brand-600 disabled:opacity-40"
+              >
+                Send
+              </button>
+            </div>
+            {transcript && <p className="mt-2 text-xs text-gray-400">Heard: {transcript}</p>}
+          </div>
+        ) : (
+          <div className="border-t bg-white px-6 py-6 text-center">
+            <p className="text-sm font-medium text-slate-600">Interview complete</p>
+            <p className="mt-1 text-xs text-slate-400">
+              Powered by <span className="font-medium text-slate-500">OpenQual</span>
+            </p>
+          </div>
+        )}
+      </main>
+    );
+  }
+
+  // --- Admin / researcher interface (existing) ---
   return (
     <main className="min-h-screen px-8 py-10">
-      <h1 className="text-2xl font-semibold">Participant Interview</h1>
+      <h1 className="text-2xl font-semibold">AI Interview Session</h1>
       <p className="mt-2 text-sm text-gray-600">
-        Thank you for taking part. Your feedback helps improve the experience.
+        LLM-powered qualitative interview. The AI moderator follows your discussion guide and probes for depth.
       </p>
+      <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-5 text-sm text-slate-700 shadow-sm">
+        <span className="font-semibold text-blue-900">How this works</span>
+        <p className="mt-2">
+          The AI moderator uses your system prompt and discussion guide to conduct the interview. Each question is asked
+          in sequence, with the LLM generating contextual follow-up probes based on participant responses. Configure your
+          LLM key in Settings.
+        </p>
+      </div>
       <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="font-semibold text-slate-900">Before you begin</span>
@@ -431,6 +715,16 @@ export default function InterviewPage() {
           I consent to recording and understand my responses are confidential.
         </label>
         <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-600">
+          <span className="font-medium text-slate-700">Mode</span>
+          <select
+            value={interviewMode}
+            onChange={(event) => setInterviewMode(event.target.value as "ai-moderated" | "record" | "live")}
+            className="rounded-lg border border-slate-200 px-3 py-1"
+          >
+            <option value="ai-moderated">AI-moderated</option>
+            <option value="record">Record</option>
+            <option value="live">Live</option>
+          </select>
           <span className="font-medium text-slate-700">Capture mode</span>
           <select
             value={captureMode}
@@ -590,6 +884,13 @@ export default function InterviewPage() {
               placeholder="Optional: summarize what you just said."
             />
           </label>
+          <div className="mt-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+            <span className="font-semibold">
+              Question {currentQuestionIndex + 1} of {totalQuestions}
+            </span>
+            {" — "}
+            <span>{questionLabels[currentQuestionIndex]}</span>
+          </div>
           <div className="mt-3 flex flex-wrap gap-3">
             <button
               type="button"
@@ -600,7 +901,10 @@ export default function InterviewPage() {
             </button>
             <button
               type="button"
-              onClick={getNextPrompt}
+              onClick={() => {
+                getNextPrompt();
+                setCurrentQuestionIndex((prev) => Math.min(prev + 1, totalQuestions - 1));
+              }}
               className="rounded-full bg-brand-500 px-4 py-2 text-sm font-medium text-white"
             >
               Get next prompt
@@ -653,7 +957,7 @@ export default function InterviewPage() {
                   type="button"
                   onClick={() => {
                     if (typeof window !== "undefined") {
-                      window.localStorage.removeItem("sensehub.embed.session");
+                      window.localStorage.removeItem("openqual.embed.session");
                     }
                     setSessionInfo(null);
                     setSessionStatus("Session cleared.");

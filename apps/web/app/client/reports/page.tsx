@@ -3,9 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user", "x-role": "client" };
+import { API_BASE, CLIENT_HEADERS as HEADERS } from "@/lib/api";
 
 type ReportJson = {
   study: { id: string; name: string; status: string };
@@ -64,7 +62,7 @@ export default function ClientReportsPage() {
       .then(setReport);
     fetch(`${API_BASE}/exports?studyId=${studyId}`, { headers: HEADERS })
       .then((r) => (r.ok ? r.json() : []))
-      .then((exportsList: { id: string }[]) => {
+      .then((exportsList: { id: string; type: string; createdAt?: string }[]) => {
         setExportsList(exportsList ?? []);
         const exportId = exportsList?.[0]?.id ?? "";
         setSelectedExportId(exportId);

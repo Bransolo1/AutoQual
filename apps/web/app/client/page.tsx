@@ -3,9 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-const HEADERS = { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user", "x-role": "client" };
+import { API_BASE, CLIENT_HEADERS as HEADERS } from "@/lib/api";
 
 type ClientView = {
   name: string;
@@ -1227,8 +1225,8 @@ export default function ClientPortalPage() {
       <section className="mt-6 rounded-2xl bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold">Approved deliverables</h2>
         <ul className="mt-3 space-y-2">
-          {data.approvedDeliverables.map((d, i) => (
-            <li key={i} className="text-sm">
+          {data.approvedDeliverables.map((d) => (
+            <li key={`${d.type}-${d.id}`} className="text-sm">
               <span className="font-medium">{d.type}</span> · {d.id}
             </li>
           ))}

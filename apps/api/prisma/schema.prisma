@@ -50,38 +50,39 @@ enum ReviewStatus {
 }
 
 model Workspace {
-  id        String   @id @default(cuid())
-  name      String
-  retentionDays Int @default(365)
-  auditRetentionEnabled Boolean @default(false)
-  auditRetentionDays Int @default(365)
-  piiRedactionEnabled Boolean @default(true)
-  encryptionAtRest Boolean @default(true)
-  integrations Json?
-  servicesNotes String?
-  activationViewThreshold Int @default(10)
-  feedbackScoreThreshold Int @default(3)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  users     User[]
-  projects  Project[]
-  studies   Study[]
-  trustArtifacts TrustArtifact[]
-  alerts    AlertEvent[]
-  alertViews AlertView[]
-  shareChecklists ShareChecklist[]
-  revokedTokens RevokedToken[]
+  id                      String           @id @default(cuid())
+  name                    String
+  retentionDays           Int              @default(365)
+  auditRetentionEnabled   Boolean          @default(false)
+  auditRetentionDays      Int              @default(365)
+  piiRedactionEnabled     Boolean          @default(true)
+  encryptionAtRest        Boolean          @default(true)
+  integrations            Json?
+  servicesNotes           String?
+  activationViewThreshold Int              @default(10)
+  feedbackScoreThreshold  Int              @default(3)
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+  users                   User[]
+  projects                Project[]
+  studies                 Study[]
+  trustArtifacts          TrustArtifact[]
+  alerts                  AlertEvent[]
+  alertViews              AlertView[]
+  shareChecklists         ShareChecklist[]
+  revokedTokens           RevokedToken[]
+  accessReviews           AccessReview[]
 }
 
 model User {
-  id          String           @id @default(cuid())
-  workspaceId String
-  email       String           @unique
-  name        String
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  workspace   Workspace        @relation(fields: [workspaceId], references: [id])
-  roles       RoleAssignment[]
+  id            String           @id @default(cuid())
+  workspaceId   String
+  email         String           @unique
+  name          String
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  workspace     Workspace        @relation(fields: [workspaceId], references: [id])
+  roles         RoleAssignment[]
   revokedTokens RevokedToken[]
 }
 
@@ -94,32 +95,32 @@ model RoleAssignment {
 }
 
 model AccessReview {
-  id        String   @id @default(cuid())
-  workspaceId String
-  reviewerUserId String
-  notes     String?
+  id              String    @id @default(cuid())
+  workspaceId     String
+  reviewerUserId  String
+  notes           String?
   reviewedUserIds Json?
-  createdAt DateTime @default(now())
-  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  createdAt       DateTime  @default(now())
+  workspace       Workspace @relation(fields: [workspaceId], references: [id])
 }
 
 model RevokedToken {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   workspaceId     String
   userId          String?
-  jti             String   @unique
+  jti             String    @unique
   revokedReason   String?
   revokedByUserId String
   expiresAt       DateTime
-  createdAt       DateTime @default(now())
+  createdAt       DateTime  @default(now())
   workspace       Workspace @relation(fields: [workspaceId], references: [id])
-  user            User?    @relation(fields: [userId], references: [id])
+  user            User?     @relation(fields: [userId], references: [id])
 
   @@index([expiresAt])
 }
 
 model Project {
-  id                 String        @id @default(cuid())
+  id                 String                @id @default(cuid())
   workspaceId        String
   name               String
   description        String
@@ -129,9 +130,9 @@ model Project {
   startDate          DateTime
   targetDeliveryDate DateTime
   tags               String[]
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-  workspace          Workspace     @relation(fields: [workspaceId], references: [id])
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  workspace          Workspace             @relation(fields: [workspaceId], references: [id])
   milestones         Milestone[]
   tasks              Task[]
   studies            Study[]
@@ -141,224 +142,224 @@ model Project {
 }
 
 model ShareChecklist {
-  id          String   @id @default(cuid())
-  projectId   String   @unique
+  id          String    @id @default(cuid())
+  projectId   String    @unique
   workspaceId String
   items       Json
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  project     Project  @relation(fields: [projectId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  project     Project   @relation(fields: [projectId], references: [id])
   workspace   Workspace @relation(fields: [workspaceId], references: [id])
 }
 
 model Milestone {
-  id        String          @id @default(cuid())
-  projectId String
-  name      String
-  dueDate   DateTime
-  status    MilestoneStatus
+  id         String          @id @default(cuid())
+  projectId  String
+  name       String
+  dueDate    DateTime
+  status     MilestoneStatus
   orderIndex Int
-  project   Project         @relation(fields: [projectId], references: [id])
-  tasks     Task[]
+  project    Project         @relation(fields: [projectId], references: [id])
+  tasks      Task[]
 }
 
 model Task {
-  id            String       @id @default(cuid())
-  projectId     String
-  milestoneId   String?
-  title         String
-  description   String
-  status        TaskStatus
-  priority      TaskPriority
-  assigneeUserId String?
-  reviewerUserId String?
-  dueDate       DateTime
-  dependencies  String[]
-  blockedReason String?
+  id              String        @id @default(cuid())
+  projectId       String
+  milestoneId     String?
+  title           String
+  description     String
+  status          TaskStatus
+  priority        TaskPriority
+  assigneeUserId  String?
+  reviewerUserId  String?
+  dueDate         DateTime
+  dependencies    String[]
+  blockedReason   String?
   blockedByTaskId String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  project       Project      @relation(fields: [projectId], references: [id])
-  milestone     Milestone?   @relation(fields: [milestoneId], references: [id])
-  comments      TaskComment[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  project         Project       @relation(fields: [projectId], references: [id])
+  milestone       Milestone?    @relation(fields: [milestoneId], references: [id])
+  comments        TaskComment[]
 }
 
 model TaskComment {
-  id        String   @id @default(cuid())
-  taskId    String
+  id           String   @id @default(cuid())
+  taskId       String
   authorUserId String
-  body      String
-  createdAt DateTime @default(now())
-  task      Task     @relation(fields: [taskId], references: [id])
+  body         String
+  createdAt    DateTime @default(now())
+  task         Task     @relation(fields: [taskId], references: [id])
 }
 
 model Attachment {
-  id              String   @id @default(cuid())
+  id               String   @id @default(cuid())
   linkedEntityType String
   linkedEntityId   String
-  filename        String
-  storageKey      String
-  createdAt       DateTime @default(now())
+  filename         String
+  storageKey       String
+  createdAt        DateTime @default(now())
 }
 
 model TrustArtifact {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   workspaceId String
   category    String
   status      String
   filename    String
   storageKey  String
   notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   workspace   Workspace @relation(fields: [workspaceId], references: [id])
 }
 
 model Approval {
-  id              String         @id @default(cuid())
-  linkedEntityType String
-  linkedEntityId   String
-  status          ApprovalStatus
+  id                String         @id @default(cuid())
+  linkedEntityType  String
+  linkedEntityId    String
+  status            ApprovalStatus
   requestedByUserId String
-  decidedByUserId String?
-  decisionNote    String?
-  decidedAt       DateTime?
+  decidedByUserId   String?
+  decisionNote      String?
+  decidedAt         DateTime?
 }
 
 model Notification {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
   type      String
   payload   Json
   readAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 }
 
 model Study {
-  id          String   @id @default(cuid())
-  workspaceId String
-  projectId   String
-  name        String
-  status      String
-  language    String   @default("en")
-  mode        String   @default("voice")
-  allowMultipleEntries Boolean @default(false)
-  allowIncomplete Boolean @default(false)
-  screeningLogic Json?
-  interviewGuide Json?
-  syntheticEnabled Boolean @default(false)
-  quotaTargets Json?
+  id                    String                @id @default(cuid())
+  workspaceId           String
+  projectId             String
+  name                  String
+  status                String
+  language              String                @default("en")
+  mode                  String                @default("voice")
+  allowMultipleEntries  Boolean               @default(false)
+  allowIncomplete       Boolean               @default(false)
+  screeningLogic        Json?
+  interviewGuide        Json?
+  syntheticEnabled      Boolean               @default(false)
+  quotaTargets          Json?
   localizationChecklist Json?
-  recruitmentChecklist Json?
-  activationChecklist Json?
-  rolloutPlan Json?
-  distributionTracking Json?
-  deliveryHealth Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
-  project     Project   @relation(fields: [projectId], references: [id])
-  participants Participant[]
-  sessions    Session[]
-  insights    Insight[]
-  themes      Theme[]
-  stories     Story[]
-  exports     Export[]
-  feedback    StakeholderFeedback[]
-  activationMetrics ActivationMetric[]
+  recruitmentChecklist  Json?
+  activationChecklist   Json?
+  rolloutPlan           Json?
+  distributionTracking  Json?
+  deliveryHealth        Json?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  workspace             Workspace             @relation(fields: [workspaceId], references: [id])
+  project               Project               @relation(fields: [projectId], references: [id])
+  participants          Participant[]
+  sessions              Session[]
+  insights              Insight[]
+  themes                Theme[]
+  stories               Story[]
+  exports               Export[]
+  feedback              StakeholderFeedback[]
+  activationMetrics     ActivationMetric[]
 }
 
 model StakeholderFeedback {
-  id          String   @id @default(cuid())
-  workspaceId String
-  projectId   String
-  studyId     String?
+  id              String   @id @default(cuid())
+  workspaceId     String
+  projectId       String
+  studyId         String?
   deliverableType String
-  deliverableId String?
+  deliverableId   String?
   stakeholderName String
   stakeholderRole String?
-  rating     Int?
-  sentiment  String?
-  notes      String?
-  createdAt  DateTime @default(now())
-  project    Project  @relation(fields: [projectId], references: [id])
-  study      Study?   @relation(fields: [studyId], references: [id])
+  rating          Int?
+  sentiment       String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  project         Project  @relation(fields: [projectId], references: [id])
+  study           Study?   @relation(fields: [studyId], references: [id])
 }
 
 model ActivationMetric {
-  id          String   @id @default(cuid())
-  workspaceId String
-  projectId   String
-  studyId     String?
+  id              String   @id @default(cuid())
+  workspaceId     String
+  projectId       String
+  studyId         String?
   deliverableType String
-  deliverableId String?
-  views       Int @default(0)
-  shares      Int @default(0)
-  decisionsLogged Int @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  project     Project  @relation(fields: [projectId], references: [id])
-  study       Study?   @relation(fields: [studyId], references: [id])
+  deliverableId   String?
+  views           Int      @default(0)
+  shares          Int      @default(0)
+  decisionsLogged Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  project         Project  @relation(fields: [projectId], references: [id])
+  study           Study?   @relation(fields: [studyId], references: [id])
 }
 
 model AlertEvent {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   workspaceId String
   type        String
   severity    String
   payload     Json
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
   workspace   Workspace @relation(fields: [workspaceId], references: [id])
 }
 
 model AlertView {
-  id            String   @id @default(cuid())
-  workspaceId   String
-  name          String
-  filters       Json
+  id              String    @id @default(cuid())
+  workspaceId     String
+  name            String
+  filters         Json
   createdByUserId String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  workspace     Workspace @relation(fields: [workspaceId], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  workspace       Workspace @relation(fields: [workspaceId], references: [id])
 
   @@unique([workspaceId, name])
 }
 
 model Participant {
-  id        String   @id @default(cuid())
-  studyId   String
-  email     String
-  locale    String?
-  source    String?
-  segment   String?
-  deviceFingerprint String?
-  verificationStatus String @default("pending")
-  fraudScore Int?
-  verifiedAt DateTime?
+  id                      String    @id @default(cuid())
+  studyId                 String
+  email                   String
+  locale                  String?
+  source                  String?
+  segment                 String?
+  deviceFingerprint       String?
+  verificationStatus      String    @default("pending")
+  fraudScore              Int?
+  verifiedAt              DateTime?
   lastVerificationAttempt DateTime?
-  velocityFlag String?
-  createdAt DateTime @default(now())
-  study     Study    @relation(fields: [studyId], references: [id])
-  sessions  Session[]
+  velocityFlag            String?
+  createdAt               DateTime  @default(now())
+  study                   Study     @relation(fields: [studyId], references: [id])
+  sessions                Session[]
 
   @@index([deviceFingerprint])
   @@index([lastVerificationAttempt])
 }
 
 model Session {
-  id          String   @id @default(cuid())
-  studyId     String
-  participantId String
-  status      String
-  consented   Boolean @default(false)
-  qualityScore Int?
-  qualityFlag String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  study       Study    @relation(fields: [studyId], references: [id])
-  participant Participant @relation(fields: [participantId], references: [id])
-  turns       Turn[]
-  transcripts Transcript[]
+  id             String          @id @default(cuid())
+  studyId        String
+  participantId  String
+  status         String
+  consented      Boolean         @default(false)
+  qualityScore   Int?
+  qualityFlag    String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  study          Study           @relation(fields: [studyId], references: [id])
+  participant    Participant     @relation(fields: [participantId], references: [id])
+  turns          Turn[]
+  transcripts    Transcript[]
   mediaArtifacts MediaArtifact[]
 }
 
@@ -372,97 +373,97 @@ model Turn {
 }
 
 model Transcript {
-  id        String   @id @default(cuid())
-  sessionId String
-  content   String
-  redactedContent String?
-  piiDetected Boolean @default(false)
-  piiMetadata Json?
+  id               String           @id @default(cuid())
+  sessionId        String
+  content          String
+  redactedContent  String?
+  piiDetected      Boolean          @default(false)
+  piiMetadata      Json?
   redactionOffsets Json?
-  wordTimestamps Json?
-  diarization Json?
-  createdAt DateTime @default(now())
-  session   Session  @relation(fields: [sessionId], references: [id])
-  spans     TranscriptSpan[]
+  wordTimestamps   Json?
+  diarization      Json?
+  createdAt        DateTime         @default(now())
+  session          Session          @relation(fields: [sessionId], references: [id])
+  spans            TranscriptSpan[]
 }
 
 model TranscriptSpan {
-  id           String   @id @default(cuid())
+  id           String     @id @default(cuid())
   transcriptId String
   startMs      Int
   endMs        Int
   text         String
-  createdAt    DateTime @default(now())
+  createdAt    DateTime   @default(now())
   transcript   Transcript @relation(fields: [transcriptId], references: [id])
 
   @@index([transcriptId])
 }
 
 model MediaArtifact {
-  id        String   @id @default(cuid())
-  sessionId String
-  type      String
+  id         String   @id @default(cuid())
+  sessionId  String
+  type       String
   storageKey String
-  status    String   @default("uploaded")
-  legalHold Boolean  @default(false)
-  createdAt DateTime @default(now())
-  session   Session  @relation(fields: [sessionId], references: [id])
-  clips     Clip[]
+  status     String   @default("uploaded")
+  legalHold  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  session    Session  @relation(fields: [sessionId], references: [id])
+  clips      Clip[]
 }
 
 model Clip {
-  id          String   @id @default(cuid())
+  id              String        @id @default(cuid())
   mediaArtifactId String
-  startMs     Int
-  endMs       Int
-  createdAt   DateTime @default(now())
-  mediaArtifact MediaArtifact @relation(fields: [mediaArtifactId], references: [id])
+  startMs         Int
+  endMs           Int
+  createdAt       DateTime      @default(now())
+  mediaArtifact   MediaArtifact @relation(fields: [mediaArtifactId], references: [id])
 }
 
 model Theme {
-  id        String   @id @default(cuid())
+  id        String         @id @default(cuid())
   studyId   String
   label     String
-  createdAt DateTime @default(now())
-  study     Study    @relation(fields: [studyId], references: [id])
+  createdAt DateTime       @default(now())
+  study     Study          @relation(fields: [studyId], references: [id])
   mappings  ThemeMapping[]
 }
 
 model ThemeMapping {
-  id        String   @id @default(cuid())
-  themeId   String
-  segment   String
+  id           String   @id @default(cuid())
+  themeId      String
+  segment      String
   insightCount Int
-  createdAt DateTime @default(now())
-  theme     Theme    @relation(fields: [themeId], references: [id])
+  createdAt    DateTime @default(now())
+  theme        Theme    @relation(fields: [themeId], references: [id])
 
   @@unique([themeId, segment])
   @@index([segment])
 }
 
 model Insight {
-  id          String   @id @default(cuid())
-  studyId     String
-  statement   String
+  id                        String           @id @default(cuid())
+  studyId                   String
+  statement                 String
   supportingTranscriptSpans Json
-  supportingVideoClips Json
-  confidenceScore Float
-  businessImplication String
-  tags        String[]
-  status      String
-  versionNumber Int
-  reviewerComments String[]
-  aiProvider String?
-  aiModel    String?
-  aiPrompt   String?
-  aiRawResponse Json?
-  aiRetries  Int?
-  aiLatencyMs Int?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  study       Study    @relation(fields: [studyId], references: [id])
-  versions    InsightVersion[]
-  reviews     Review[]
+  supportingVideoClips      Json
+  confidenceScore           Float
+  businessImplication       String
+  tags                      String[]
+  status                    String
+  versionNumber             Int
+  reviewerComments          String[]
+  aiProvider                String?
+  aiModel                   String?
+  aiPrompt                  String?
+  aiRawResponse             Json?
+  aiRetries                 Int?
+  aiLatencyMs               Int?
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @updatedAt
+  study                     Study            @relation(fields: [studyId], references: [id])
+  versions                  InsightVersion[]
+  reviews                   Review[]
 }
 
 model Story {
@@ -478,55 +479,55 @@ model Story {
 }
 
 model Export {
-  id        String   @id @default(cuid())
-  studyId   String
-  type      String
+  id         String   @id @default(cuid())
+  studyId    String
+  type       String
   storageKey String
-  createdAt DateTime @default(now())
-  study     Study    @relation(fields: [studyId], references: [id])
+  createdAt  DateTime @default(now())
+  study      Study    @relation(fields: [studyId], references: [id])
 }
 
 model InsightVersion {
-  id        String   @id @default(cuid())
-  insightId String
-  versionNumber Int
-  content   Json
+  id               String   @id @default(cuid())
+  insightId        String
+  versionNumber    Int
+  content          Json
   reviewerComments Json
-  createdAt DateTime @default(now())
-  insight   Insight  @relation(fields: [insightId], references: [id])
+  createdAt        DateTime @default(now())
+  insight          Insight  @relation(fields: [insightId], references: [id])
 }
 
 model ReviewComment {
-  id        String   @id @default(cuid())
-  reviewId  String
+  id           String   @id @default(cuid())
+  reviewId     String
   authorUserId String
-  body      String
-  createdAt DateTime @default(now())
-  review    Review  @relation(fields: [reviewId], references: [id])
+  body         String
+  createdAt    DateTime @default(now())
+  review       Review   @relation(fields: [reviewId], references: [id])
 }
 
 model Review {
-  id        String      @id @default(cuid())
-  insightId String
-  status    ReviewStatus
-  reviewerId String?
-  comments  String?
-  createdAt DateTime @default(now())
-  insight   Insight   @relation(fields: [insightId], references: [id])
+  id             String          @id @default(cuid())
+  insightId      String
+  status         ReviewStatus
+  reviewerId     String?
+  comments       String?
+  createdAt      DateTime        @default(now())
+  insight        Insight         @relation(fields: [insightId], references: [id])
   commentEntries ReviewComment[]
 }
 
 model AuditEvent {
-  id        String   @id @default(cuid())
-  workspaceId String
-  actorUserId String
-  action    String
-  entityType String
-  entityId  String
-  metadata  Json
-  beforeHash String?
-  afterHash  String?
+  id            String   @id @default(cuid())
+  workspaceId   String
+  actorUserId   String
+  action        String
+  entityType    String
+  entityId      String
+  metadata      Json
+  beforeHash    String?
+  afterHash     String?
   integrityHash String?
-  requestId String?
-  createdAt DateTime @default(now())
+  requestId     String?
+  createdAt     DateTime @default(now())
 }

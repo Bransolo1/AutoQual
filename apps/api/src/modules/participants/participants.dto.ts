@@ -11,6 +11,7 @@ export type CreateParticipantInput = {
 export type RecruitParticipantsInput = {
   studyId: string;
   count: number;
+  email?: string;
   locale?: string;
   source?: string;
   segment?: string;

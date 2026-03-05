@@ -26,8 +26,11 @@ async function main() {
   const end = new Date(Date.now() + 14 * 86400000);
   const span = (end.getTime() - start.getTime()) / (DEFAULT_MILESTONES.length + 1);
 
-  const project = await prisma.project.create({
-    data: {
+  const DEMO_PROJECT_ID = "demo-project-id";
+  const project = await prisma.project.upsert({
+    where: { id: DEMO_PROJECT_ID },
+    create: {
+      id: DEMO_PROJECT_ID,
       workspaceId: workspace.id,
       name: "Retail CX Pulse",
       description: "End-to-end delivery pipeline demo.",
@@ -38,6 +41,7 @@ async function main() {
       targetDeliveryDate: end,
       tags: ["demo", "retail"],
     },
+    update: {},
   });
 
   await prisma.shareChecklist.upsert({

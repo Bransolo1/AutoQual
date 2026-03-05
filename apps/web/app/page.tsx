@@ -1,11 +1,11 @@
 import React from "react";
 import Link from "next/link";
+import { API_BASE, HEADERS } from "@/lib/api";
 
 async function getRecentNotifications() {
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
   try {
     const response = await fetch(`${API_BASE}/notifications?userId=demo-user&limit=5`, {
-      headers: { "x-workspace-id": "demo-workspace-id", "x-user-id": "demo-user" },
+      headers: HEADERS,
       cache: "no-store",
     });
     if (!response.ok) return [];
@@ -16,66 +16,66 @@ async function getRecentNotifications() {
 }
 
 const cards = [
-  { title: "Projects", description: "Track delivery from intake to final report." },
-  { title: "Studies", description: "Run AI moderated interviews and manage sessions." },
-  { title: "Insights", description: "Evidence-backed insights with approvals." },
-  { title: "Notifications", description: "Assignments, approvals, and reminders." },
+  { title: "Studies", description: "Design discussion guides with per-question LLM prompts." },
+  { title: "Interviews", description: "AI-moderated sessions using your own API key." },
+  { title: "Insights", description: "Evidence-backed findings with reviewer approval workflows." },
+  { title: "Settings", description: "Configure your OpenAI or Anthropic API key." },
 ];
 
 const stats = [
-  { label: "Simple steps", value: "4" },
-  { label: "Insight stages", value: "5" },
-  { label: "Speed options", value: "3" },
-  { label: "Your workspaces", value: "∞" },
+  { label: "Per interview", value: "~$0.50" },
+  { label: "LLM support", value: "GPT-4o / Claude" },
+  { label: "Study wizard", value: "7-step" },
+  { label: "Open source", value: "100%" },
 ];
 
 const features = [
   {
-    title: "Smart inference",
-    description: "Auto-coded themes and insights with defensible defaults.",
+    title: "Bring your own key",
+    description: "Use your OpenAI or Anthropic API key. No markup. Pay only what the LLM charges.",
   },
   {
-    title: "Runs in the background",
-    description: "Processing and review workflows keep moving without blocking.",
+    title: "Prompt framework",
+    description: "Craft system prompts and per-question instructions that guide the AI interviewer.",
   },
   {
-    title: "Sensible defaults",
-    description: "Templates, milestones, and roles set up the pipeline fast.",
+    title: "Auto interviews",
+    description: "The LLM conducts structured qualitative interviews following your discussion guide.",
   },
   {
     title: "Evidence traceability",
-    description: "Video clips and transcript spans attached to every insight.",
+    description: "Every insight links back to transcript spans and session recordings.",
   },
   {
-    title: "Clear diagnostics",
-    description: "Review states, comments, and diffs show what changed and why.",
+    title: "Insight engine",
+    description: "Auto-coded themes, confidence scores, and reviewer workflows.",
   },
   {
-    title: "One-click export",
-    description: "Export reports to Markdown, JSON, or PPT outline.",
+    title: "Export anything",
+    description: "Markdown, JSON, PPT outlines, and evidence bundles — one click.",
   },
 ];
 
 const steps = [
   {
     number: "01",
-    title: "Intake",
-    description: "Create a project, set goals, and auto-generate milestones.",
+    title: "Design",
+    description: "Create a study, write your discussion guide, and set system prompts for the LLM.",
   },
   {
     number: "02",
-    title: "Fieldwork",
-    description: "Run moderated sessions with secure video capture.",
+    title: "Interview",
+    description: "Participants interact with the AI interviewer. It probes, follows up, and captures rich responses.",
   },
   {
     number: "03",
-    title: "Analysis",
-    description: "Generate themes and insights with evidence traceability.",
+    title: "Analyse",
+    description: "The LLM generates themes and insights with evidence-backed confidence scores.",
   },
   {
     number: "04",
-    title: "Delivery",
-    description: "Review, approve, and export deliverables for clients.",
+    title: "Deliver",
+    description: "Review, approve, and share reports with clients through the portal.",
   },
 ];
 
@@ -85,65 +85,29 @@ export default async function HomePage() {
   return (
     <main className="min-h-screen px-8 py-10">
       <div className="rounded-2xl gradient-bg p-8 text-white">
-        <p className="text-sm uppercase tracking-wide text-white/80">Guided · enterprise ready</p>
-        <h1 className="mt-3 text-4xl font-semibold">Sensehub Auto Qual</h1>
+        <p className="text-sm uppercase tracking-wide text-white/80">Open source · bring your own LLM</p>
+        <h1 className="mt-3 text-4xl font-semibold">OpenQual</h1>
         <p className="mt-2 text-lg">
-          Enterprise AI qualitative research with built-in delivery management.
+          The open-source alternative to GetWhy. Run AI-powered qualitative interviews with your own API key. 10x cheaper. Full control.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
-            href="/projects"
+            href="/studies"
             className="rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-950"
           >
-            View Projects
+            Start a Study
           </Link>
           <Link
-            href="/studies"
+            href="/settings"
             className="rounded-full border border-white px-4 py-2 text-sm font-medium"
           >
-            Explore Features
+            Configure API Key
           </Link>
           <Link
-            href="/client"
+            href="/demo"
             className="rounded-full border border-white px-4 py-2 text-sm font-medium"
           >
-            Client Portal
-          </Link>
-          <Link
-            href="/ops"
-            className="rounded-full border border-white px-4 py-2 text-sm font-medium"
-          >
-            Ops Dashboard
-          </Link>
-          <Link
-            href="/interview"
-            className="rounded-full border border-white px-4 py-2 text-sm font-medium"
-          >
-            Interview Capture
-          </Link>
-          <Link
-            href="/insights"
-            className="rounded-full border border-white px-4 py-2 text-sm font-medium"
-          >
-            Insights Review
-          </Link>
-          <Link
-            href="/evidence"
-            className="rounded-full border border-white px-4 py-2 text-sm font-medium"
-          >
-            Evidence Viewer
-          </Link>
-          <Link
-            href="/notifications"
-            className="rounded-full border border-white px-4 py-2 text-sm font-medium"
-          >
-            Notifications
-          </Link>
-          <Link
-            href="/embed-test"
-            className="rounded-full border border-white px-4 py-2 text-sm font-medium"
-          >
-            Embed Test
+            How It Works
           </Link>
         </div>
         <div className="mt-6 grid gap-4 rounded-2xl bg-white/10 p-4 text-white md:grid-cols-4">
@@ -157,7 +121,7 @@ export default async function HomePage() {
       </div>
 
       <section className="mt-10">
-        <h2 className="text-2xl font-semibold">What you get</h2>
+        <h2 className="text-2xl font-semibold">Why OpenQual?</h2>
         <p className="mt-2 text-sm text-gray-600">Clear outcomes without the jargon.</p>
         <div className="mt-6 grid gap-6 md:grid-cols-3">
           {features.map((feature) => (
