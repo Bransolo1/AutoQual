@@ -26,6 +26,7 @@ export default function ChatPage() {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
+  const [depth, setDepth] = useState<"quick" | "balanced" | "reflective" | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -33,12 +34,14 @@ export default function ChatPage() {
   useEffect(() => {
     const cached = sessionStorage.getItem(`study:${token}`);
     const sid = sessionStorage.getItem(`session:${token}`);
+    const storedDepth = sessionStorage.getItem(`depth:${token}`) as "quick" | "balanced" | "reflective" | null;
     if (cached) {
       const s = JSON.parse(cached) as StudyInfo;
       setStudy(s);
       setTotalQuestions(s.questions.length);
     }
     if (sid) setSessionId(sid);
+    if (storedDepth) setDepth(storedDepth);
   }, [token]);
 
   // Fetch the first moderator question once session is ready
@@ -59,7 +62,7 @@ export default function ChatPage() {
       const res = await fetch("/api/p/next", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, lastUserMessage }),
+        body: JSON.stringify({ sessionId, lastUserMessage, depth }),
       });
       if (!res.ok) return false;
       const data = await res.json();

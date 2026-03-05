@@ -1383,3 +1383,140 @@ Acceptance Criteria:
 - Response includes the workspace ID, admin invite link, and a temporary setup URL.
 - Endpoint is documented in the ops runbook.
 
+
+---
+
+## EPIC H: Hosting and deployment
+
+---
+Summary: H1 Docker Compose for single-machine hosting and usability testing
+Issue Type: Story
+Priority: P0
+Story Points: 3
+Status: open
+Description: There is no Docker Compose file. Engineers and usability testers cannot spin up the full stack locally without manually configuring five services. A single `docker compose up` should start postgres, redis, api, worker, and web.
+Acceptance Criteria:
+- `docker-compose.yml` at repo root defines: postgres:16-alpine, redis:7-alpine, api (port 4000), worker, web (port 3000).
+- All services share an `autoqual_net` bridge network.
+- `api` and `worker` depend on `postgres` and `redis` with health checks.
+- Operators configure the stack via a single `.env` file (documented in `.env.example`).
+- `docker compose up` brings all services online with no manual steps.
+
+---
+Summary: H2 Environment variable documentation (.env.example)
+Issue Type: Story
+Priority: P0
+Story Points: 1
+Status: open
+Description: No `.env.example` file exists. New developers and operators have no reference for required environment variables.
+Acceptance Criteria:
+- `.env.example` at repo root documents every env var used across api, worker, and web.
+- Each variable has an inline comment explaining its purpose and an example value.
+- Secrets (API keys, DB passwords) use placeholder values like `<your-openai-api-key>`.
+
+---
+
+## EPIC U: UX Development
+
+---
+Summary: U1 Replace static marketing home page with authenticated dashboard
+Issue Type: Story
+Priority: P0
+Story Points: 3
+Status: open
+Description: The home page (`app/page.tsx`) is a static marketing page with a raw `<pre>` JSON notification dump. Authenticated users need a dashboard showing their workspace context, recent activity, and quick actions.
+Acceptance Criteria:
+- Authenticated users see: welcome greeting with their name, quick stats (active studies, sessions this week, pending approvals), recent projects grid (top 3), and quick action buttons.
+- Unauthenticated users are redirected to `/auth/login`.
+- Raw `<pre>` JSON dump is removed.
+- Marketing hero copy is removed from the authenticated experience.
+
+---
+Summary: U2 Simplify main navigation from 11 items to 5 primary + More dropdown
+Issue Type: Story
+Priority: P0
+Story Points: 2
+Status: open
+Description: The nav bar has 11 items (Projects, Studies, Fieldwork, Insights, Approvals, Reports, Search, Settings, Audit Log, Help, Notifications) which overwhelms new users and fails on narrow viewports.
+Acceptance Criteria:
+- Primary nav shows: Projects, Studies, Insights, Settings, Notifications (with unread badge).
+- Secondary items (Fieldwork, Approvals, Reports, Search, Audit Log, Help) are accessible via a "More ▾" dropdown.
+- Dropdown is keyboard-accessible (Escape closes, arrow keys navigate).
+- Active state is indicated for the current route.
+
+---
+Summary: U3 Wire EmptyState component on projects, studies, and insights pages
+Issue Type: Story
+Priority: P1
+Story Points: 2
+Status: open
+Description: When there are no items, pages show a blank area. The existing `EmptyState` component should be wired up to provide helpful context and a call-to-action.
+Acceptance Criteria:
+- Projects page: EmptyState with "No projects yet" and "Create project" action.
+- Studies page: EmptyState with "No studies yet" and "Create study" action.
+- Insights page: EmptyState with "No insights yet" and "Run analysis" description.
+- Each empty state uses the existing `EmptyState` component from `apps/web/components/EmptyState.tsx`.
+
+---
+Summary: U4 Wire Skeleton loading states on list pages
+Issue Type: Story
+Priority: P1
+Story Points: 2
+Status: open
+Description: List pages show a blank screen while data is loading. `SkeletonCard` and `SkeletonTable` components exist but are not used.
+Acceptance Criteria:
+- Projects, studies, and insights list pages render `SkeletonCard` placeholders while the API fetch is in-flight.
+- Loading state is replaced by real content (or EmptyState) once the fetch resolves.
+- Uses existing `Skeleton` components from `apps/web/components/Skeleton.tsx`.
+
+---
+Summary: U5 Add breadcrumb navigation to inner pages
+Issue Type: Story
+Priority: P2
+Story Points: 1
+Status: open
+Description: Inner pages (study detail, insight detail) have no breadcrumb, making it hard to navigate back.
+Acceptance Criteria:
+- Study detail page shows: Projects > {project name} > Studies > {study name}.
+- Insight detail page shows: Studies > {study name} > Insights > {insight title}.
+- Breadcrumb links are accessible and keyboard-navigable.
+
+---
+
+## EPIC L: LLM Integration Improvements
+
+---
+Summary: L1 Improve insight extraction prompt quality
+Issue Type: Story
+Priority: P1
+Story Points: 2
+Status: open
+Description: The current insight prompt is 2 lines: "You are an insight extraction service. Return ONLY valid JSON." This produces shallow, low-confidence insights.
+Acceptance Criteria:
+- Prompt includes: senior qual researcher role framing, instruction to extract 1 key insight per call, requirements for evidence-based statement (≤1 sentence), actionable business_implication, 3–5 descriptive tags, confidence score with rationale.
+- Output schema is explicitly described in the prompt.
+- Insight quality visibly improves in manual test runs with real transcripts.
+
+---
+Summary: L2 Pass participant depth preference into moderator system prompt
+Issue Type: Story
+Priority: P1
+Story Points: 2
+Status: open
+Description: Participants select a depth preference (Quick/Balanced/Reflective) during onboarding but it is never communicated to the LLM moderator.
+Acceptance Criteria:
+- `moderateTurn()` in `packages/ai-adapters/src/index.ts` accepts optional `depth: "quick" | "balanced" | "reflective"` parameter.
+- System prompt includes depth instructions: quick → max 1 follow-up probe, balanced → up to 2 probes, reflective → probe until saturation (3+).
+- Chat page reads `depth:${token}` from sessionStorage and passes it through `/api/p/next` to the moderator.
+
+---
+Summary: L3 Surface AI provider metadata in insight API responses
+Issue Type: Story
+Priority: P2
+Story Points: 1
+Status: open
+Description: `ai.service.ts` collects `provider`, `model`, and `latencyMs` but does not expose them. Researchers and operators cannot see which model generated an insight or how long it took.
+Acceptance Criteria:
+- Insight API response includes an `_meta` object with `provider`, `model`, and `latencyMs`.
+- Insight detail page displays provider and latency in a collapsed "Technical details" section.
+- No PII is included in `_meta`.

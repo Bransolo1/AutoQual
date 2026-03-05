@@ -5,6 +5,7 @@ import { TokenProvider } from "../lib/token-context";
 import { CookieConsent } from "../components/CookieConsent";
 import { ToastProvider } from "../components/Toast";
 import { BillingBanner } from "../components/BillingBanner";
+import { NavMore } from "../components/NavMore";
 
 export const metadata = {
   title: "Sensehub Auto Qual",
@@ -50,14 +51,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <nav aria-label="Main navigation" className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
               <a href="/projects" className="hover:text-slate-950">Projects</a>
               <a href="/studies" className="hover:text-slate-950">Studies</a>
-              <a href="/fieldwork" className="hover:text-slate-950">Fieldwork</a>
               <a href="/insights" className="hover:text-slate-950">Insights</a>
-              <a href="/approvals" className="hover:text-slate-950">Approvals</a>
-              <a href="/reports" className="hover:text-slate-950">Reports</a>
-              <a href="/search" className="hover:text-slate-950">Search</a>
               <a href="/settings" className="hover:text-slate-950">Settings</a>
-              <a href="/audit" className="hover:text-slate-950">Audit Log</a>
-              <a href="/help" className="hover:text-slate-950" aria-label="Help and documentation">Help</a>
               <a href="/notifications" className="relative hover:text-slate-950" aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : "Notifications"}>
                 Notifications
                 {unreadCount > 0 && (
@@ -66,6 +61,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   </span>
                 )}
               </a>
+              <NavMore />
               {user ? (
                 <span className="flex items-center gap-3">
                   <span className="text-xs text-gray-400" aria-label={`Signed in as ${user.email ?? user.sub}`}>{user.email ?? user.sub}</span>

@@ -34,20 +34,33 @@ export class AiService {
 
   private buildInsightPrompt(transcriptText: string) {
     return [
-      "You are an insight extraction service.",
-      "Return ONLY valid JSON that matches this schema:",
+      "You are a senior qualitative researcher with 15 years of experience in consumer and enterprise research.",
+      "Your task is to extract ONE key insight from the interview transcript below.",
+      "",
+      "INSIGHT CRITERIA:",
+      "- statement: One clear, evidence-based sentence capturing a non-obvious finding. Begin with 'Participants...' or 'Users...' or a specific behavioural observation. Avoid vague generalisations.",
+      "- business_implication: One actionable sentence describing what a product, design, or strategy team should do with this finding.",
+      "- confidence_score: 0.0–1.0. Use 0.85+ only when multiple participants expressed the same idea unprompted. Use 0.5–0.7 for single mentions or partial evidence.",
+      "- tags: 3–5 lowercase kebab-case labels (e.g. 'onboarding', 'trust', 'price-sensitivity'). No generic tags like 'feedback' or 'interview'.",
+      "- supporting_transcript_spans: Verbatim quotes (under 25 words each) from the transcript that directly support the insight. Provide at least one.",
+      "- supporting_video_clips: Leave as empty array [].",
+      "- status: Always 'draft'.",
+      "- reviewer_comments: Always empty array [].",
+      "",
+      "OUTPUT: Return ONLY valid JSON. No markdown, no code fences, no additional text.",
+      "",
       `{
   "statement": string,
   "supporting_transcript_spans": string[],
   "supporting_video_clips": string[],
-  "confidence_score": number (0-1),
+  "confidence_score": number,
   "business_implication": string,
   "tags": string[],
-  "status": "draft" | "in_review" | "approved" | "rejected",
-  "reviewer_comments": string[]
+  "status": "draft",
+  "reviewer_comments": []
 }`,
-      "No markdown, no code fences, no additional text.",
-      "Transcript:",
+      "",
+      "TRANSCRIPT:",
       transcriptText,
     ].join("\n");
   }

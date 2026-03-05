@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useApi } from "../lib/use-api";
+import { EmptyState } from "../../components/EmptyState";
+import { SkeletonCard } from "../../components/Skeleton";
 
 type Project = {
   id: string;
@@ -27,6 +29,7 @@ export default function ProjectsPage() {
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [loading, setLoading] = useState(true);
   const initialFilters = useMemo(() => {
     return {
       status: searchParams.get("status") ?? "",
@@ -44,14 +47,16 @@ export default function ProjectsPage() {
     if (statusFilter) params.set("status", statusFilter);
     if (ownerFilter) params.set("ownerUserId", ownerFilter);
     if (query) params.set("q", query);
-    apiFetch(`/projects?${params.toString()}`))
+    setLoading(true);
+    apiFetch(`/projects?${params.toString()}`)
       .then((r) => (r.ok ? r.json() : []))
-      .then(setProjects);
+      .then((data) => { setProjects(data); setLoading(false); })
+      .catch(() => setLoading(false));
   }, [statusFilter, ownerFilter, query]);
 
   useEffect(() => {
     if (!taskId) return;
-    apiFetch(`/tasks/${taskId}`))
+    apiFetch(`/tasks/${taskId}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((task) => {
         if (task?.projectId) {
@@ -61,7 +66,7 @@ export default function ProjectsPage() {
   }, [taskId, router]);
 
   useEffect(() => {
-    apiFetch(`/approvals?status=requested`))
+    apiFetch(`/approvals?status=requested`)
       .then((r) => (r.ok ? r.json() : []))
       .then(setApprovals);
   }, []);
@@ -135,9 +140,26 @@ export default function ProjectsPage() {
         />
       </div>
       <div className="mt-6 grid gap-4">
-        {projects.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-6 text-sm text-gray-500">
-            No projects yet. Create a project to start tracking milestones and tasks.
+        {loading ? (
+          <>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </>
+        ) : projects.length === 0 ? (
+          <div className="rounded-2xl bg-white p-2 shadow-sm">
+            <EmptyState
+              title="No projects yet"
+              description="Create a project to start tracking milestones, tasks, and deliverables."
+              action={
+                <Link
+                  href="/projects?action=new"
+                  className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                >
+                  Create project
+                </Link>
+              }
+            />
           </div>
         ) : (
           projects.map((project) => (

@@ -126,12 +126,22 @@ export async function moderateTurn(opts: {
   systemPrompt: string;
   messages: ChatMessage[];
   maxTokens?: number;
+  depth?: "quick" | "balanced" | "reflective";
 }): Promise<{ text: string; provider: string; latencyMs: number }> {
   const provider = (process.env.AI_PROVIDER ?? "mock").toLowerCase();
   const t0 = Date.now();
 
+  const depthInstruction =
+    opts.depth === "quick"
+      ? "Keep responses concise. Ask at most ONE follow-up probe per question before moving on."
+      : opts.depth === "reflective"
+      ? "Probe deeply. Ask clarifying and reflective follow-up questions (up to 3 probes) until the participant's reasoning is fully explored before moving to the next question."
+      : "Balance depth and pace. Ask up to TWO follow-up probes before moving to the next question.";
+
+  const systemPromptWithDepth = `${opts.systemPrompt}\n\nINTERVIEW DEPTH: ${depthInstruction}`;
+
   const messages: ChatMessage[] = [
-    { role: "system", content: opts.systemPrompt },
+    { role: "system", content: systemPromptWithDepth },
     ...opts.messages,
   ];
 

@@ -13,6 +13,7 @@ export class ModeratorController {
       input.lastUserMessage,
       input.prefetchCount,
       input.latencyMode ?? "default",
+      input.depth,
     );
   }
 

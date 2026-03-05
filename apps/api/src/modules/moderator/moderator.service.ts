@@ -119,6 +119,7 @@ export class ModeratorService {
     lastUserMessage?: string,
     prefetchCount = 2,
     latencyMode: "fast" | "default" = "default",
+    depth?: "quick" | "balanced" | "reflective",
   ) {
     const session = await this.prisma.session.findUnique({
       where: { id: sessionId },
@@ -225,6 +226,7 @@ export class ModeratorService {
           moderateTurn({
             systemPrompt: systemPrompt + probeInstruction,
             messages,
+            depth,
           }),
           new Promise<never>((_, reject) => setTimeout(() => reject(new Error("LLM timeout")), 8000)),
         ]);

@@ -2,6 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useApi } from "../lib/use-api";
+import { EmptyState } from "../../components/EmptyState";
+import { SkeletonCard } from "../../components/Skeleton";
 
 const STORY_DRAFT_KEY = "autoqual.storyDraft.v1";
 
@@ -128,7 +130,7 @@ export default function InsightWorkbenchPage() {
     }
     setLoading(true);
     setLoadStatus("Loading insights...");
-    const res = await apiFetch(`/insights?studyId=${studyId}`));
+    const res = await apiFetch(`/insights?studyId=${studyId}`);
     if (!res.ok) {
       setLoadStatus("Failed to load insights.");
       setLoading(false);
@@ -153,10 +155,10 @@ export default function InsightWorkbenchPage() {
       setSegments([]);
       return;
     }
-    const res = await apiFetch(`/themes?studyId=${studyId}`));
+    const res = await apiFetch(`/themes?studyId=${studyId}`);
     if (!res.ok) return;
     setThemes(await res.json());
-    const segmentsRes = await apiFetch(`/themes/segments?studyId=${studyId}`));
+    const segmentsRes = await apiFetch(`/themes/segments?studyId=${studyId}`);
     if (segmentsRes.ok) {
       const payload = (await segmentsRes.json()) as { segments?: string[] };
       setSegments(payload.segments ?? []);
@@ -170,8 +172,9 @@ export default function InsightWorkbenchPage() {
       return;
     }
     setSearchStatus("Searching...");
-    const res = await apiFetch(`/search/insights/query-evidence`,{method: "POST",
-      headers: { ...HEADERS, "Content-Type": "application/json" },
+    const res = await apiFetch(`/search/insights/query-evidence`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query: searchQuery, studyId, limit: 8 }),
     });
     if (!res.ok) {
@@ -235,7 +238,7 @@ export default function InsightWorkbenchPage() {
     updateEvidenceState(insightId, { status: "Saving evidence..." });
     const res = await apiFetch(`/insights/${insightId}/evidence`, {
       method: "POST",
-      headers: { ...HEADERS, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         supportingTranscriptSpans: transcriptSpans.length ? transcriptSpans : undefined,
         supportingVideoClips: videoClips.length ? videoClips : undefined,
@@ -264,7 +267,7 @@ export default function InsightWorkbenchPage() {
     updateSpanState(insightId, { status: "Creating span..." });
     const res = await apiFetch(`/transcripts/${state.transcriptId}/spans`, {
       method: "POST",
-      headers: { ...HEADERS, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ startMs, endMs }),
     });
     if (!res.ok) {
@@ -338,7 +341,7 @@ export default function InsightWorkbenchPage() {
     updateUnredactState({ status: "Requesting unredact..." });
     const res = await apiFetch(`/transcripts/${unredactState.transcriptId}/unredact`, {
       method: "POST",
-      headers: { ...HEADERS, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         actorUserId: user?.sub ?? "",
         reason: unredactState.reason || undefined,
@@ -448,9 +451,20 @@ export default function InsightWorkbenchPage() {
       <section className="mt-6 max-w-4xl rounded-2xl bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold">Insights</h2>
         {loading ? (
-          <p className="mt-3 text-sm text-gray-500">Loading insights…</p>
+          <div className="mt-4 space-y-4">
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
         ) : filteredInsights.length === 0 ? (
-          <p className="mt-3 text-sm text-gray-500">No insights match these filters.</p>
+          <EmptyState
+            title={insights.length > 0 ? "No insights match these filters" : "No insights yet"}
+            description={
+              insights.length > 0
+                ? "Try adjusting your filters."
+                : "Select a study and run analysis to generate AI insights from your transcripts."
+            }
+          />
         ) : (
           <ul className="mt-4 space-y-4 text-sm text-gray-600">
             {filteredInsights.map((insight) => {

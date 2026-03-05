@@ -1,228 +1,226 @@
-import React from "react";
 import Link from "next/link";
+import { bearerHeader, getSessionUser } from "../lib/session";
+import { redirect } from "next/navigation";
 
-async function getRecentNotifications() {
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-  const { bearerHeader } = await import("../lib/session");
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+
+async function getDashboardData() {
   const auth = bearerHeader();
-  if (!auth.Authorization) return [];
-  try {
-    const response = await fetch(`${API_BASE}/notifications?limit=5`, {
-      headers: { ...auth },
-      cache: "no-store",
-    });
-    if (!response.ok) return [];
-    return await response.json();
-  } catch {
-    return [];
-  }
+  if (!auth.Authorization) return null;
+
+  const [projectsRes, studiesRes, approvalsRes, notificationsRes] = await Promise.allSettled([
+    fetch(`${API_BASE}/projects?limit=3`, { headers: { ...auth }, cache: "no-store" }),
+    fetch(`${API_BASE}/studies?limit=3`, { headers: { ...auth }, cache: "no-store" }),
+    fetch(`${API_BASE}/approvals?status=requested&limit=1`, { headers: { ...auth }, cache: "no-store" }),
+    fetch(`${API_BASE}/notifications?unread=true&limit=1`, { headers: { ...auth }, cache: "no-store" }),
+  ]);
+
+  const projects =
+    projectsRes.status === "fulfilled" && projectsRes.value.ok
+      ? ((await projectsRes.value.json()) as Array<{ id: string; name: string; status: string; clientOrgName?: string }>)
+      : [];
+
+  const studies =
+    studiesRes.status === "fulfilled" && studiesRes.value.ok
+      ? ((await studiesRes.value.json()) as Array<{ id: string; name: string; status: string }>)
+      : [];
+
+  const pendingApprovals =
+    approvalsRes.status === "fulfilled" && approvalsRes.value.ok
+      ? ((await approvalsRes.value.json()) as unknown[]).length
+      : 0;
+
+  const unreadNotifications =
+    notificationsRes.status === "fulfilled" && notificationsRes.value.ok
+      ? ((await notificationsRes.value.json()) as unknown[]).length
+      : 0;
+
+  return { projects, studies, pendingApprovals, unreadNotifications };
 }
 
-const cards = [
-  { title: "Projects", description: "Track delivery from intake to final report." },
-  { title: "Studies", description: "Run AI moderated interviews and manage sessions." },
-  { title: "Insights", description: "Evidence-backed insights with approvals." },
-  { title: "Notifications", description: "Assignments, approvals, and reminders." },
-];
+const STATUS_COLORS: Record<string, string> = {
+  active: "bg-emerald-100 text-emerald-700",
+  planned: "bg-slate-100 text-slate-600",
+  complete: "bg-blue-100 text-blue-700",
+  on_hold: "bg-amber-100 text-amber-700",
+  cancelled: "bg-red-100 text-red-700",
+  draft: "bg-slate-100 text-slate-600",
+  live: "bg-emerald-100 text-emerald-700",
+  analysis: "bg-purple-100 text-purple-700",
+  closed: "bg-gray-100 text-gray-600",
+};
 
-const stats = [
-  { label: "Simple steps", value: "4" },
-  { label: "Insight stages", value: "5" },
-  { label: "Speed options", value: "3" },
-  { label: "Your workspaces", value: "∞" },
-];
+export default async function DashboardPage() {
+  const user = getSessionUser();
+  if (!user) {
+    redirect("/auth/login");
+  }
 
-const features = [
-  {
-    title: "Smart inference",
-    description: "Auto-coded themes and insights with defensible defaults.",
-  },
-  {
-    title: "Runs in the background",
-    description: "Processing and review workflows keep moving without blocking.",
-  },
-  {
-    title: "Sensible defaults",
-    description: "Templates, milestones, and roles set up the pipeline fast.",
-  },
-  {
-    title: "Evidence traceability",
-    description: "Video clips and transcript spans attached to every insight.",
-  },
-  {
-    title: "Clear diagnostics",
-    description: "Review states, comments, and diffs show what changed and why.",
-  },
-  {
-    title: "One-click export",
-    description: "Export reports to Markdown, JSON, or PPT outline.",
-  },
-];
+  const data = await getDashboardData();
+  const displayName = user.email ?? user.sub ?? "";
 
-const steps = [
-  {
-    number: "01",
-    title: "Intake",
-    description: "Create a project, set goals, and auto-generate milestones.",
-  },
-  {
-    number: "02",
-    title: "Fieldwork",
-    description: "Run moderated sessions with secure video capture.",
-  },
-  {
-    number: "03",
-    title: "Analysis",
-    description: "Generate themes and insights with evidence traceability.",
-  },
-  {
-    number: "04",
-    title: "Delivery",
-    description: "Review, approve, and export deliverables for clients.",
-  },
-];
-
-export default async function HomePage() {
-  const recentNotifications: { id: string; type: string; payload: Record<string, unknown>; createdAt: string }[] =
-    await getRecentNotifications();
   return (
-    <main className="min-h-screen px-8 py-10">
-      <div className="rounded-2xl gradient-bg p-8 text-white">
-        <p className="text-sm uppercase tracking-wide text-white/80">Guided · enterprise ready</p>
-        <h1 className="mt-3 text-4xl font-semibold">Sensehub Auto Qual</h1>
-        <p className="mt-2 text-lg">
-          Enterprise AI qualitative research with built-in delivery management.
-        </p>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Link
-            href="/projects"
-            className="rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-950"
-          >
-            View Projects
-          </Link>
-          <Link
-            href="/studies"
-            className="rounded-full border border-white px-4 py-2 text-sm font-medium"
-          >
-            Explore Features
-          </Link>
-          <Link
-            href="/client"
-            className="rounded-full border border-white px-4 py-2 text-sm font-medium"
-          >
-            Client Portal
-          </Link>
-          <Link
-            href="/ops"
-            className="rounded-full border border-white px-4 py-2 text-sm font-medium"
-          >
-            Ops Dashboard
-          </Link>
-          <Link
-            href="/interview"
-            className="rounded-full border border-white px-4 py-2 text-sm font-medium"
-          >
-            Interview Capture
-          </Link>
-          <Link
-            href="/insights"
-            className="rounded-full border border-white px-4 py-2 text-sm font-medium"
-          >
-            Insights Review
-          </Link>
-          <Link
-            href="/evidence"
-            className="rounded-full border border-white px-4 py-2 text-sm font-medium"
-          >
-            Evidence Viewer
-          </Link>
-          <Link
-            href="/notifications"
-            className="rounded-full border border-white px-4 py-2 text-sm font-medium"
-          >
-            Notifications
-          </Link>
-          <Link
-            href="/embed-test"
-            className="rounded-full border border-white px-4 py-2 text-sm font-medium"
-          >
-            Embed Test
-          </Link>
+    <main className="min-h-screen bg-slate-50 px-8 py-10">
+      <div className="mx-auto max-w-5xl">
+        {/* Welcome */}
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">
+            Welcome back{displayName ? `, ${displayName.split("@")[0]}` : ""}
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Here&apos;s what&apos;s happening in your workspace today.
+          </p>
         </div>
-        <div className="mt-6 grid gap-4 rounded-2xl bg-white/10 p-4 text-white md:grid-cols-4">
-          {stats.map((stat) => (
-            <div key={stat.label}>
-              <p className="text-2xl font-semibold">{stat.value}</p>
-              <p className="text-xs uppercase tracking-wide text-white/80">{stat.label}</p>
-            </div>
-          ))}
+
+        {/* Quick stats */}
+        <div className="mt-6 grid gap-4 sm:grid-cols-3">
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Active studies</p>
+            <p className="mt-2 text-3xl font-semibold text-slate-900">
+              {data?.studies.filter((s) => s.status === "live" || s.status === "active").length ?? "—"}
+            </p>
+            <Link href="/studies" className="mt-2 block text-xs text-slate-400 hover:text-slate-700">
+              View all studies →
+            </Link>
+          </div>
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Pending approvals</p>
+            <p className="mt-2 text-3xl font-semibold text-slate-900">
+              {data?.pendingApprovals ?? "—"}
+            </p>
+            <Link href="/approvals" className="mt-2 block text-xs text-slate-400 hover:text-slate-700">
+              Review approvals →
+            </Link>
+          </div>
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Unread notifications</p>
+            <p className="mt-2 text-3xl font-semibold text-slate-900">
+              {data?.unreadNotifications ?? "—"}
+            </p>
+            <Link href="/notifications" className="mt-2 block text-xs text-slate-400 hover:text-slate-700">
+              View notifications →
+            </Link>
+          </div>
+        </div>
+
+        {/* Quick actions */}
+        <div className="mt-8">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Quick actions</h2>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <Link
+              href="/studies?action=new"
+              className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+            >
+              + New study
+            </Link>
+            <Link
+              href="/projects?action=new"
+              className="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:border-slate-500 hover:text-slate-900"
+            >
+              + New project
+            </Link>
+            <Link
+              href="/insights"
+              className="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:border-slate-500 hover:text-slate-900"
+            >
+              View insights
+            </Link>
+            <Link
+              href="/fieldwork"
+              className="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:border-slate-500 hover:text-slate-900"
+            >
+              Go to fieldwork
+            </Link>
+          </div>
+        </div>
+
+        {/* Recent projects */}
+        <div className="mt-8">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-slate-900">Recent projects</h2>
+            <Link href="/projects" className="text-xs text-slate-400 hover:text-slate-700">
+              View all →
+            </Link>
+          </div>
+          <div className="mt-3 grid gap-4 sm:grid-cols-3">
+            {!data || data.projects.length === 0 ? (
+              <div className="col-span-3 rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center">
+                <p className="text-sm text-slate-400">No projects yet.</p>
+                <Link
+                  href="/projects?action=new"
+                  className="mt-3 inline-block rounded-full bg-slate-900 px-4 py-2 text-xs font-medium text-white hover:bg-slate-800"
+                >
+                  Create your first project
+                </Link>
+              </div>
+            ) : (
+              data.projects.map((project) => (
+                <Link
+                  key={project.id}
+                  href={`/projects/${project.id}`}
+                  className="rounded-2xl bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-semibold text-slate-800 leading-snug">{project.name}</p>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                        STATUS_COLORS[project.status] ?? "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {project.status}
+                    </span>
+                  </div>
+                  {project.clientOrgName && (
+                    <p className="mt-1.5 text-xs text-slate-400">{project.clientOrgName}</p>
+                  )}
+                </Link>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Recent studies */}
+        <div className="mt-8">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-slate-900">Recent studies</h2>
+            <Link href="/studies" className="text-xs text-slate-400 hover:text-slate-700">
+              View all →
+            </Link>
+          </div>
+          <div className="mt-3 grid gap-4 sm:grid-cols-3">
+            {!data || data.studies.length === 0 ? (
+              <div className="col-span-3 rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center">
+                <p className="text-sm text-slate-400">No studies yet.</p>
+                <Link
+                  href="/studies?action=new"
+                  className="mt-3 inline-block rounded-full bg-slate-900 px-4 py-2 text-xs font-medium text-white hover:bg-slate-800"
+                >
+                  Create your first study
+                </Link>
+              </div>
+            ) : (
+              data.studies.map((study) => (
+                <Link
+                  key={study.id}
+                  href={`/studies/${study.id}`}
+                  className="rounded-2xl bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-semibold text-slate-800 leading-snug">{study.name}</p>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                        STATUS_COLORS[study.status] ?? "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {study.status}
+                    </span>
+                  </div>
+                </Link>
+              ))
+            )}
+          </div>
         </div>
       </div>
-
-      <section className="mt-10">
-        <h2 className="text-2xl font-semibold">What you get</h2>
-        <p className="mt-2 text-sm text-gray-600">Clear outcomes without the jargon.</p>
-        <div className="mt-6 grid gap-6 md:grid-cols-3">
-          {features.map((feature) => (
-            <div key={feature.title} className="rounded-2xl bg-white p-6 shadow-sm">
-              <h3 className="text-lg font-semibold">{feature.title}</h3>
-              <p className="mt-2 text-sm text-gray-600">{feature.description}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="mt-10">
-        <h2 className="text-2xl font-semibold">How it works</h2>
-        <p className="mt-2 text-sm text-gray-600">Four steps from intake to delivery.</p>
-        <div className="mt-6 grid gap-4 md:grid-cols-4">
-          {steps.map((step) => (
-            <div key={step.number} className="rounded-2xl bg-white p-6 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">
-                {step.number}
-              </p>
-              <h3 className="mt-2 text-lg font-semibold">{step.title}</h3>
-              <p className="mt-2 text-sm text-gray-600">{step.description}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="mt-10 grid gap-6 md:grid-cols-3">
-        {cards.map((card) => (
-          <div key={card.title} className="rounded-2xl bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold">{card.title}</h2>
-            <p className="mt-2 text-sm text-gray-600">{card.description}</p>
-          </div>
-        ))}
-      </section>
-
-      <section className="mt-10">
-        <h2 className="text-2xl font-semibold">Recent activity</h2>
-        <p className="mt-2 text-sm text-gray-600">Latest assignments, approvals, and reminders.</p>
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          {recentNotifications.length === 0 && (
-            <div className="rounded-2xl bg-white p-6 text-sm text-gray-500 shadow-sm">
-              No recent notifications yet.
-            </div>
-          )}
-          {recentNotifications.map((notification) => (
-            <div key={notification.id} className="rounded-2xl bg-white p-6 shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wide text-brand-600">
-                  {notification.type}
-                </span>
-                <span className="text-xs text-gray-400">
-                  {new Date(notification.createdAt).toLocaleString()}
-                </span>
-              </div>
-              <pre className="mt-3 whitespace-pre-wrap text-sm text-gray-600">
-                {JSON.stringify(notification.payload, null, 2)}
-              </pre>
-            </div>
-          ))}
-        </div>
-      </section>
     </main>
   );
 }
