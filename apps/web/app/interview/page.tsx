@@ -375,6 +375,7 @@ function InterviewContent() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        sessionId: sessionInfo?.sessionId,
         metadata: {
           recorded: Boolean(recordedUrl),
           uploaded: uploadStatus === "done" || multipartStatus === "done",

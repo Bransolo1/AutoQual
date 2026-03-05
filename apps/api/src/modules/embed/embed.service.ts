@@ -45,6 +45,16 @@ export class EmbedService {
   }
 
   async notifyCompletion(studyId: string, payload: Record<string, unknown>) {
+    const sessionId = typeof payload.sessionId === "string" ? payload.sessionId : undefined;
+
+    if (sessionId) {
+      await this.prisma.session.update({
+        where: { id: sessionId },
+        data: { status: "completed" },
+      });
+      await this.queueService.addTranscriptionJob(sessionId);
+    }
+
     try {
       const study = await this.prisma.study.findUnique({
         where: { id: studyId },
