@@ -215,6 +215,31 @@ export class SsoService {
     return defaultRole;
   }
 
+  /**
+   * Upsert a user from a Google OAuth callback.
+   * Auto-provisions the workspace if it doesn't exist yet (enables first-time sign-up).
+   */
+  async upsertGoogleUser(input: { sub: string; email: string; name: string; workspaceId: string }) {
+    // Auto-provision workspace if needed
+    const workspace = await this.prisma.workspace.findUnique({ where: { id: input.workspaceId } });
+    if (!workspace) {
+      await this.prisma.workspace.create({
+        data: {
+          id: input.workspaceId,
+          name: input.workspaceId === "default" ? "Default Workspace" : input.workspaceId,
+          billingStatus: "trialing",
+        },
+      }).catch(() => null); // idempotent — ignore if concurrent creation wins
+    }
+
+    return this.upsertUser({
+      workspaceId: input.workspaceId,
+      email: input.email,
+      name: input.name,
+      role: process.env.SSO_DEFAULT_ROLE ?? "researcher",
+    });
+  }
+
   private async upsertUser(input: { workspaceId: string; email: string; name: string; role: string }) {
     const existing = await this.prisma.user.findUnique({ where: { email: input.email } });
     if (existing && existing.workspaceId !== input.workspaceId) {

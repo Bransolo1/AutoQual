@@ -1393,7 +1393,7 @@ Summary: H1 Docker Compose for single-machine hosting and usability testing
 Issue Type: Story
 Priority: P0
 Story Points: 3
-Status: open
+Status: done
 Description: There is no Docker Compose file. Engineers and usability testers cannot spin up the full stack locally without manually configuring five services. A single `docker compose up` should start postgres, redis, api, worker, and web.
 Acceptance Criteria:
 - `docker-compose.yml` at repo root defines: postgres:16-alpine, redis:7-alpine, api (port 4000), worker, web (port 3000).
@@ -1407,7 +1407,7 @@ Summary: H2 Environment variable documentation (.env.example)
 Issue Type: Story
 Priority: P0
 Story Points: 1
-Status: open
+Status: done
 Description: No `.env.example` file exists. New developers and operators have no reference for required environment variables.
 Acceptance Criteria:
 - `.env.example` at repo root documents every env var used across api, worker, and web.
@@ -1423,7 +1423,7 @@ Summary: U1 Replace static marketing home page with authenticated dashboard
 Issue Type: Story
 Priority: P0
 Story Points: 3
-Status: open
+Status: done
 Description: The home page (`app/page.tsx`) is a static marketing page with a raw `<pre>` JSON notification dump. Authenticated users need a dashboard showing their workspace context, recent activity, and quick actions.
 Acceptance Criteria:
 - Authenticated users see: welcome greeting with their name, quick stats (active studies, sessions this week, pending approvals), recent projects grid (top 3), and quick action buttons.
@@ -1436,7 +1436,7 @@ Summary: U2 Simplify main navigation from 11 items to 5 primary + More dropdown
 Issue Type: Story
 Priority: P0
 Story Points: 2
-Status: open
+Status: done
 Description: The nav bar has 11 items (Projects, Studies, Fieldwork, Insights, Approvals, Reports, Search, Settings, Audit Log, Help, Notifications) which overwhelms new users and fails on narrow viewports.
 Acceptance Criteria:
 - Primary nav shows: Projects, Studies, Insights, Settings, Notifications (with unread badge).
@@ -1449,7 +1449,7 @@ Summary: U3 Wire EmptyState component on projects, studies, and insights pages
 Issue Type: Story
 Priority: P1
 Story Points: 2
-Status: open
+Status: done
 Description: When there are no items, pages show a blank area. The existing `EmptyState` component should be wired up to provide helpful context and a call-to-action.
 Acceptance Criteria:
 - Projects page: EmptyState with "No projects yet" and "Create project" action.
@@ -1462,7 +1462,7 @@ Summary: U4 Wire Skeleton loading states on list pages
 Issue Type: Story
 Priority: P1
 Story Points: 2
-Status: open
+Status: done
 Description: List pages show a blank screen while data is loading. `SkeletonCard` and `SkeletonTable` components exist but are not used.
 Acceptance Criteria:
 - Projects, studies, and insights list pages render `SkeletonCard` placeholders while the API fetch is in-flight.
@@ -1474,7 +1474,7 @@ Summary: U5 Add breadcrumb navigation to inner pages
 Issue Type: Story
 Priority: P2
 Story Points: 1
-Status: open
+Status: done
 Description: Inner pages (study detail, insight detail) have no breadcrumb, making it hard to navigate back.
 Acceptance Criteria:
 - Study detail page shows: Projects > {project name} > Studies > {study name}.
@@ -1490,7 +1490,7 @@ Summary: L1 Improve insight extraction prompt quality
 Issue Type: Story
 Priority: P1
 Story Points: 2
-Status: open
+Status: done
 Description: The current insight prompt is 2 lines: "You are an insight extraction service. Return ONLY valid JSON." This produces shallow, low-confidence insights.
 Acceptance Criteria:
 - Prompt includes: senior qual researcher role framing, instruction to extract 1 key insight per call, requirements for evidence-based statement (≤1 sentence), actionable business_implication, 3–5 descriptive tags, confidence score with rationale.
@@ -1502,7 +1502,7 @@ Summary: L2 Pass participant depth preference into moderator system prompt
 Issue Type: Story
 Priority: P1
 Story Points: 2
-Status: open
+Status: done
 Description: Participants select a depth preference (Quick/Balanced/Reflective) during onboarding but it is never communicated to the LLM moderator.
 Acceptance Criteria:
 - `moderateTurn()` in `packages/ai-adapters/src/index.ts` accepts optional `depth: "quick" | "balanced" | "reflective"` parameter.
@@ -1514,9 +1514,29 @@ Summary: L3 Surface AI provider metadata in insight API responses
 Issue Type: Story
 Priority: P2
 Story Points: 1
-Status: open
+Status: done
 Description: `ai.service.ts` collects `provider`, `model`, and `latencyMs` but does not expose them. Researchers and operators cannot see which model generated an insight or how long it took.
 Acceptance Criteria:
 - Insight API response includes an `_meta` object with `provider`, `model`, and `latencyMs`.
 - Insight detail page displays provider and latency in a collapsed "Technical details" section.
 - No PII is included in `_meta`.
+
+---
+
+## EPIC G: Google Authentication
+
+---
+Summary: G1 Google OAuth sign-in and account auto-provisioning
+Issue Type: Story
+Priority: P0
+Story Points: 3
+Status: done
+Description: Users need to sign in with their Google account. The platform lacked any working authentication flow accessible to new users.
+Acceptance Criteria:
+- "Continue with Google" button is displayed on the login page.
+- Clicking the button redirects to Google's consent screen.
+- After consent, the user is redirected back and logged in (session cookie set).
+- New users are auto-provisioned into the default workspace on first sign-in.
+- Google sign-in flow works independently of the enterprise SSO system.
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` are documented in `.env.example`.
+- Enterprise SSO (workspace ID form) remains available as a secondary option.

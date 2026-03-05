@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Post, Query } from "@nestjs/common";
 import { Roles } from "../../auth/roles.decorator";
 import { SsoService } from "./sso.service";
 import {
@@ -85,6 +85,29 @@ export class SsoController {
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
     };
+  }
+
+  /**
+   * POST /auth/sso/google/upsert
+   *
+   * Called by the web app after a successful Google OAuth callback to ensure
+   * the user record exists in the database. Best-effort — errors do not block login.
+   */
+  @Post("google/upsert")
+  async googleUpsert(
+    @Body() body: { sub: string; email: string; name?: string; workspaceId?: string },
+  ) {
+    try {
+      const result = await this.ssoService.upsertGoogleUser({
+        sub: body.sub,
+        email: body.email,
+        name: body.name ?? body.email,
+        workspaceId: body.workspaceId ?? process.env.DEFAULT_WORKSPACE_ID ?? "default",
+      });
+      return { status: "ok", userId: result.id };
+    } catch {
+      return { status: "skipped" };
+    }
   }
 
   @Post("logout")
