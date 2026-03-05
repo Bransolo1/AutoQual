@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { createHmac } from "crypto";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
+import { QueueService } from "../../queue/queue.service";
 
 type TokenPayload = {
   studyId: string;
@@ -10,7 +11,10 @@ type TokenPayload = {
 
 @Injectable()
 export class EmbedService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly queueService: QueueService,
+  ) {}
 
   private get secret() {
     return process.env.EMBED_SECRET ?? "embed-secret";
@@ -118,12 +122,14 @@ export class EmbedService {
   }
 
   async createTranscript(input: { sessionId: string; content: string }) {
-    return this.prisma.transcript.create({
+    const transcript = await this.prisma.transcript.create({
       data: {
         sessionId: input.sessionId,
         content: input.content,
       },
     });
+    await this.queueService.addTranscriptRedaction(transcript.id);
+    return transcript;
   }
 
   async updateConsent(input: { sessionId: string; consented: boolean }) {
