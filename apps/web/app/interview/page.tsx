@@ -66,6 +66,9 @@ function InterviewContent() {
   const [transcript, setTranscript] = useState("");
   const [textInput, setTextInput] = useState("");
   const [interviewComplete, setInterviewComplete] = useState(false);
+  const [typingText, setTypingText] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const recognitionRef = useRef<any>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -99,7 +102,7 @@ function InterviewContent() {
   // Auto-scroll chat to bottom when messages change
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isListening]);
+  }, [messages, isListening, typingText, isWaitingForResponse]);
 
   // Compute displayable messages, always including the first AI question for participant mode
   const displayMessages = useMemo(() => {
@@ -508,6 +511,23 @@ function InterviewContent() {
     else startListening();
   };
 
+  const typeMessage = (text: string): Promise<void> => {
+    return new Promise((resolve) => {
+      setIsTyping(true);
+      let i = 0;
+      const interval = setInterval(() => {
+        i++;
+        setTypingText(text.slice(0, i));
+        if (i >= text.length) {
+          clearInterval(interval);
+          setIsTyping(false);
+          setTypingText('');
+          resolve();
+        }
+      }, 25);
+    });
+  };
+
   const sendResponse = async () => {
     const text = textInput.trim();
     if (!text || interviewComplete) return;
@@ -517,19 +537,20 @@ function InterviewContent() {
     setTranscript("");
 
     if (currentQuestionIndex >= totalQuestions - 1) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "ai",
-          content:
-            "Thank you so much for sharing your thoughts! Your responses have been recorded. This interview is now complete.",
-        },
-      ]);
+      const completionMessage =
+        "Thank you so much for sharing your thoughts! Your responses have been recorded. This interview is now complete.";
+      setIsWaitingForResponse(true);
+      await new Promise((r) => setTimeout(r, 800));
+      setIsWaitingForResponse(false);
+      await typeMessage(completionMessage);
+      setMessages((prev) => [...prev, { role: "ai", content: completionMessage }]);
       setInterviewComplete(true);
       return;
     }
 
+    setIsWaitingForResponse(true);
     const sessionId = sessionInfo?.sessionId || "demo-session";
+    let aiMessage: string;
     try {
       const res = await fetch(`${API_BASE}/moderator/${sessionId}/next-turn`, {
         method: "POST",
@@ -542,21 +563,17 @@ function InterviewContent() {
       });
       if (res.ok) {
         const data = await res.json();
-        const aiMessage = data.prompt ?? data.fallbackPrompt ?? questionLabels[currentQuestionIndex + 1];
-        setMessages((prev) => [...prev, { role: "ai", content: aiMessage }]);
+        aiMessage = data.prompt ?? data.fallbackPrompt ?? questionLabels[currentQuestionIndex + 1];
       } else {
-        setMessages((prev) => [
-          ...prev,
-          { role: "ai", content: questionLabels[currentQuestionIndex + 1] || "Thank you. Please continue." },
-        ]);
+        aiMessage = questionLabels[currentQuestionIndex + 1] || "Thank you. Please continue.";
       }
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: "ai", content: questionLabels[currentQuestionIndex + 1] || "Thank you. Please continue." },
-      ]);
+      aiMessage = questionLabels[currentQuestionIndex + 1] || "Thank you. Please continue.";
     }
 
+    setIsWaitingForResponse(false);
+    await typeMessage(aiMessage);
+    setMessages((prev) => [...prev, { role: "ai", content: aiMessage }]);
     setCurrentQuestionIndex((prev) => Math.min(prev + 1, totalQuestions - 1));
   };
 
@@ -593,6 +610,20 @@ function InterviewContent() {
               </div>
             </div>
           ))}
+          {isWaitingForResponse && (
+            <div className="flex justify-start">
+              <div className="max-w-[80%] rounded-2xl px-4 py-3 text-sm bg-gray-100 text-gray-500 rounded-bl-md">
+                <span className="animate-pulse">● ● ●</span>
+              </div>
+            </div>
+          )}
+          {isTyping && (
+            <div className="flex justify-start">
+              <div className="max-w-[80%] rounded-2xl px-4 py-3 text-sm bg-gray-100 text-gray-800 rounded-bl-md">
+                {typingText}<span className="animate-pulse">|</span>
+              </div>
+            </div>
+          )}
           {isListening && (
             <div className="flex justify-end">
               <div className="max-w-[80%] animate-pulse rounded-2xl rounded-br-md bg-brand-100 px-4 py-3 text-sm text-brand-700">
@@ -610,9 +641,10 @@ function InterviewContent() {
               <button
                 type="button"
                 onClick={toggleListening}
+                disabled={isTyping || isWaitingForResponse}
                 className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white transition-all ${
                   isListening ? "animate-pulse bg-red-500" : "bg-brand-500 hover:bg-brand-600"
-                }`}
+                } disabled:opacity-40`}
               >
                 🎤
               </button>
@@ -630,7 +662,7 @@ function InterviewContent() {
               <button
                 type="button"
                 onClick={() => sendResponse()}
-                disabled={!textInput.trim()}
+                disabled={!textInput.trim() || isTyping || isWaitingForResponse}
                 className="rounded-xl bg-brand-500 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-brand-600 disabled:opacity-40"
               >
                 Send
