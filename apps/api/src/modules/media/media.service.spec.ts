@@ -6,6 +6,7 @@ describe("MediaService", () => {
     const prisma = {
       mediaArtifact: {
         findUniqueOrThrow: vi.fn().mockResolvedValue({ id: "artifact-1" }),
+        update: vi.fn().mockResolvedValue({ id: "artifact-1" }),
       },
       clip: {
         create: vi.fn().mockResolvedValue({ id: "clip-1" }),

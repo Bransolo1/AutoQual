@@ -142,7 +142,7 @@ export default function NotificationsPage() {
               {JSON.stringify(notification.payload, null, 2)}
             </pre>
             <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-500">
-              {notification.payload.projectId && (
+              {!!notification.payload.projectId && (
                 <Link
                   href={`/projects/${notification.payload.projectId}`}
                   className="text-brand-600 hover:underline"
@@ -155,15 +155,15 @@ export default function NotificationsPage() {
                   View approvals
                 </Link>
               )}
-              {notification.payload.taskId && (
-                <span>Task ID: {notification.payload.taskId}</span>
+              {!!notification.payload.taskId && (
+                <span>Task ID: {String(notification.payload.taskId)}</span>
               )}
               {notification.type === "task.overdue" && (
                 <Link href="/ops/overdue" className="text-brand-600 hover:underline">
                   View overdue list
                 </Link>
               )}
-              {notification.payload.insightId && (
+              {!!notification.payload.insightId && (
                 <Link
                   href={`/insights/${notification.payload.insightId}`}
                   className="text-brand-600 hover:underline"

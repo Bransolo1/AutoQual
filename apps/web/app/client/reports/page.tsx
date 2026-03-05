@@ -62,7 +62,7 @@ export default function ClientReportsPage() {
       .then(setReport);
     fetch(`${API_BASE}/exports?studyId=${studyId}`, { headers: HEADERS })
       .then((r) => (r.ok ? r.json() : []))
-      .then((exportsList: { id: string }[]) => {
+      .then((exportsList: { id: string; type: string; createdAt?: string }[]) => {
         setExportsList(exportsList ?? []);
         const exportId = exportsList?.[0]?.id ?? "";
         setSelectedExportId(exportId);

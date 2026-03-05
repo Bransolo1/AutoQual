@@ -7,7 +7,7 @@ describe("AiService deterministic mock", () => {
     const input = { studyId: "study-1", transcriptText: "hello world" };
     const first = await service.generateInsight(input);
     const second = await service.generateInsight(input);
-    expect(first.statement).toBe(second.statement);
-    expect(first.supporting_transcript_spans).toEqual(second.supporting_transcript_spans);
+    expect(first.value.statement).toBe(second.value.statement);
+    expect(first.value.supporting_transcript_spans).toEqual(second.value.supporting_transcript_spans);
   });
 });
