@@ -178,6 +178,64 @@ export async function handlePipelineJob(
       headers: API_HEADERS,
     });
     const signed = signedRes.ok ? ((await signedRes.json()) as { url?: string }) : null;
+
+    // C2: real transcription via Deepgram if configured
+    const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY;
+    if (DEEPGRAM_API_KEY && signed?.url) {
+      try {
+        const dgRes = await fetch(
+          "https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&diarize=true&punctuate=true",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Token ${DEEPGRAM_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ url: signed.url }),
+          },
+        );
+        if (dgRes.ok) {
+          type DgWord = { word: string; start: number; end: number; speaker?: number };
+          type DgResult = { results?: { channels?: Array<{ alternatives?: Array<{ transcript?: string; words?: DgWord[] }> }>; diarization?: Array<{ speaker: number; start: number; end: number }> } };
+          const dg = (await dgRes.json()) as DgResult;
+          const alt = dg.results?.channels?.[0]?.alternatives?.[0];
+          if (alt?.transcript && alt.words) {
+            const content = alt.transcript;
+            const wordTimestamps = alt.words.map((w) => ({
+              word: w.word,
+              startMs: Math.round(w.start * 1000),
+              endMs: Math.round(w.end * 1000),
+            }));
+            const totalEnd = wordTimestamps.length ? wordTimestamps[wordTimestamps.length - 1].endMs : 0;
+            // Build speaker diarization from word-level speaker tags
+            const speakerMap = new Map<number, { startMs: number; endMs: number }>();
+            for (const w of alt.words) {
+              const spk = w.speaker ?? 0;
+              const existing = speakerMap.get(spk);
+              const startMs = Math.round(w.start * 1000);
+              const endMs = Math.round(w.end * 1000);
+              if (!existing) speakerMap.set(spk, { startMs, endMs });
+              else speakerMap.set(spk, { startMs: Math.min(existing.startMs, startMs), endMs: Math.max(existing.endMs, endMs) });
+            }
+            const diarization = [...speakerMap.entries()].map(([speaker, range]) => ({
+              speaker: speaker === 0 ? "participant" : `speaker_${speaker}`,
+              ...range,
+              confidence: 0.95,
+            }));
+            const transcriptRes = await fetch(`${API_BASE}/transcripts`, {
+              method: "POST",
+              headers: API_HEADERS,
+              body: JSON.stringify({ sessionId, content, wordTimestamps, diarization }),
+            });
+            return { processed: transcriptRes.ok, sessionId, wordCount: wordTimestamps.length, provider: "deepgram" };
+          }
+        }
+      } catch {
+        // fall through to synthetic transcript
+      }
+    }
+
+    // Fallback: synthetic transcript
     const seed = primary.storageKey ?? signed?.url ?? sessionId;
     const content = synthesizeTranscript(seed, artifacts.length);
     const words = content.match(/\S+/g) ?? [];
@@ -203,7 +261,7 @@ export async function handlePipelineJob(
         diarization,
       }),
     });
-    return { processed: transcriptRes.ok, sessionId, wordCount: words.length };
+    return { processed: transcriptRes.ok, sessionId, wordCount: words.length, provider: "synthetic" };
   }
   if (job.name === "theme.coding") {
     const { studyId, transcriptText } = job.data as { studyId: string; transcriptText: string };

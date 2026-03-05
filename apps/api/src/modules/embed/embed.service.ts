@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { HttpException, HttpStatus, Injectable, UnauthorizedException } from "@nestjs/common";
 import { createHmac } from "crypto";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
@@ -89,10 +89,45 @@ export class EmbedService {
     }
   }
 
+  private readonly FREE_SESSION_LIMIT = 100;
+
   async createSession(
     studyId: string,
     input: { email: string; locale?: string; source?: string; segment?: string; consented?: boolean; screened?: boolean }
   ) {
+    // R3: enforce monthly session quota on free/trialing workspaces
+    if (!input.screened) {
+      const study = await this.prisma.study.findUnique({
+        where: { id: studyId },
+        select: { workspaceId: true },
+      });
+      if (study) {
+        const workspace = await this.prisma.workspace.findUnique({
+          where: { id: study.workspaceId },
+          select: { billingStatus: true },
+        });
+        const isPaidPlan = workspace?.billingStatus === "active";
+        if (!isPaidPlan) {
+          const monthStart = new Date();
+          monthStart.setDate(1);
+          monthStart.setHours(0, 0, 0, 0);
+          const sessionCount = await this.prisma.session.count({
+            where: {
+              study: { workspaceId: study.workspaceId },
+              createdAt: { gte: monthStart },
+              status: { not: "screened_out" },
+            },
+          });
+          if (sessionCount >= this.FREE_SESSION_LIMIT) {
+            throw new HttpException(
+              { error: "quota_exceeded", message: "Monthly session limit reached. Please upgrade to continue." },
+              HttpStatus.PAYMENT_REQUIRED,
+            );
+          }
+        }
+      }
+    }
+
     const participant = await this.prisma.participant.create({
       data: {
         studyId,

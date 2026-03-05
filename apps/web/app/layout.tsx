@@ -57,6 +57,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               <a href="/search" className="hover:text-slate-950">Search</a>
               <a href="/settings" className="hover:text-slate-950">Settings</a>
               <a href="/audit" className="hover:text-slate-950">Audit Log</a>
+              <a href="/help" className="hover:text-slate-950" aria-label="Help and documentation">Help</a>
               <a href="/notifications" className="relative hover:text-slate-950" aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : "Notifications"}>
                 Notifications
                 {unreadCount > 0 && (
