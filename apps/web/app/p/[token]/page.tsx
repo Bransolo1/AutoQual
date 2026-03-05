@@ -17,7 +17,8 @@ type StudyInfo = {
   screeningLogic: ScreeningLogic | null;
 };
 
-type WelcomeStep = "welcome" | "screening" | "disqualified";
+type WelcomeStep = "welcome" | "screening" | "depth" | "disqualified";
+type DepthChoice = "quick" | "balanced" | "reflective";
 
 function evaluateScreening(
   rules: ScreenOutRule[],
@@ -48,6 +49,7 @@ export default function ParticipantWelcomePage() {
   const [starting, setStarting] = useState(false);
   const [welcomeStep, setWelcomeStep] = useState<WelcomeStep>("welcome");
   const [screenAnswers, setScreenAnswers] = useState<Record<string, string>>({});
+  const [depthChoice, setDepthChoice] = useState<DepthChoice>("balanced");
 
   useEffect(() => {
     if (!token) return;
@@ -71,7 +73,7 @@ export default function ParticipantWelcomePage() {
     if (hasScreening > 0) {
       setWelcomeStep("screening");
     } else {
-      await beginInterview(false);
+      setWelcomeStep("depth");
     }
   }
 
@@ -88,8 +90,14 @@ export default function ParticipantWelcomePage() {
       }).catch(() => undefined);
       setWelcomeStep("disqualified");
     } else {
-      await beginInterview(false);
+      setWelcomeStep("depth");
     }
+  }
+
+  async function handleDepthSubmit(choice: DepthChoice) {
+    setDepthChoice(choice);
+    sessionStorage.setItem(`depth:${token}`, choice);
+    await beginInterview(false);
   }
 
   async function beginInterview(screened: boolean) {
@@ -107,7 +115,11 @@ export default function ParticipantWelcomePage() {
     }
     const { sessionId } = await res.json();
     sessionStorage.setItem(`session:${token}`, sessionId);
-    router.push(`/p/${token}/q/0`);
+    if (study.mode === "text") {
+      router.push(`/p/${token}/chat`);
+    } else {
+      router.push(`/p/${token}/q/0`);
+    }
   }
 
   if (error) {
@@ -223,6 +235,54 @@ export default function ParticipantWelcomePage() {
                 {starting ? "Checking…" : "Continue →"}
               </button>
             </form>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // ── Depth preference ────────────────────────────────────────────────────────
+  if (welcomeStep === "depth") {
+    const options: Array<{ value: DepthChoice; label: string; tagline: string; icon: string }> = [
+      { value: "quick", label: "Quick", tagline: "Focused answers, efficient pace", icon: "⚡" },
+      { value: "balanced", label: "Balanced", tagline: "A mix of depth and pace (recommended)", icon: "⚖️" },
+      { value: "reflective", label: "Reflective", tagline: "I enjoy exploring topics in detail", icon: "💭" },
+    ];
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center p-6">
+        <div className="w-full max-w-lg">
+          <p className="mb-6 text-center text-xs font-medium uppercase tracking-widest text-slate-400">
+            Sensehub Research
+          </p>
+          <div className="rounded-2xl bg-white p-8 shadow-sm">
+            <h1 className="text-xl font-bold text-slate-900">How would you like to approach this interview?</h1>
+            <p className="mt-2 text-sm text-slate-500">
+              Your preference helps us create a better experience. You can always elaborate as much or as little as you like.
+            </p>
+            <div className="mt-6 space-y-3">
+              {options.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  disabled={starting}
+                  onClick={() => handleDepthSubmit(opt.value)}
+                  className={`w-full rounded-xl border-2 px-5 py-4 text-left transition-colors hover:border-slate-500 hover:bg-slate-50 disabled:opacity-40 ${
+                    depthChoice === opt.value ? "border-slate-800 bg-slate-50" : "border-slate-200"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl">{opt.icon}</span>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{opt.label}</p>
+                      <p className="text-xs text-slate-500">{opt.tagline}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+            {starting && (
+              <p className="mt-4 text-center text-sm text-slate-400">Starting your interview…</p>
+            )}
           </div>
         </div>
       </main>

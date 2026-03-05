@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useApi } from "../../lib/use-api";
+import { ConfirmDialog } from "../../../../components/ConfirmDialog";
 
 type Member = {
   id: string;
@@ -31,6 +32,8 @@ export default function TeamPage() {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
   const [roleStatus, setRoleStatus] = useState<string | null>(null);
+  const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null); // inviteId
+  const [confirmRemove, setConfirmRemove] = useState<Member | null>(null);
 
   const workspaceId = user?.workspaceId ?? "";
 
@@ -78,7 +81,14 @@ export default function TeamPage() {
 
   async function revokeInvitation(inviteId: string) {
     await apiFetch(`/workspaces/${workspaceId}/invitations/${inviteId}`, { method: "DELETE" });
+    setConfirmRevoke(null);
     await loadInvitations();
+  }
+
+  async function removeMember(userId: string) {
+    await apiFetch(`/workspaces/${workspaceId}/members/${userId}`, { method: "DELETE" });
+    setConfirmRemove(null);
+    await loadMembers();
   }
 
   async function updateRole(userId: string, roles: string[]) {
@@ -169,7 +179,7 @@ export default function TeamPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => revokeInvitation(inv.id)}
+                  onClick={() => setConfirmRevoke(inv.id)}
                   className="text-xs text-red-500 hover:text-red-700"
                 >
                   Revoke
@@ -212,8 +222,16 @@ export default function TeamPage() {
                         )
                       }
                     />
-                    {member.id === user?.sub && (
+                    {member.id === user?.sub ? (
                       <span className="text-xs text-gray-400">(you)</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmRemove(member)}
+                        className="text-xs text-red-500 hover:text-red-700"
+                      >
+                        Remove
+                      </button>
                     )}
                   </div>
                 </li>
@@ -223,6 +241,26 @@ export default function TeamPage() {
         )}
         {roleStatus && <p className="mt-3 text-xs text-gray-400">{roleStatus}</p>}
       </section>
+
+      <ConfirmDialog
+        open={confirmRevoke !== null}
+        title="Revoke invitation?"
+        description="This invitation will be cancelled. The recipient will no longer be able to use the invite link."
+        confirmLabel="Revoke"
+        destructive
+        onConfirm={() => confirmRevoke && revokeInvitation(confirmRevoke)}
+        onCancel={() => setConfirmRevoke(null)}
+      />
+
+      <ConfirmDialog
+        open={confirmRemove !== null}
+        title={`Remove ${confirmRemove?.name ?? "member"}?`}
+        description="This person will lose access to the workspace immediately. This action cannot be undone."
+        confirmLabel="Remove member"
+        destructive
+        onConfirm={() => confirmRemove && removeMember(confirmRemove.id)}
+        onCancel={() => setConfirmRemove(null)}
+      />
     </main>
   );
 }
