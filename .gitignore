@@ -26,3 +26,4 @@ apps/e2e/test-results/
 # Allow .env.example in all apps and packages
 !apps/**/.env.example
 !packages/**/.env.example
+apps/web/tsconfig.tsbuildinfo
